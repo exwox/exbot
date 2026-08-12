@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - EXBOT DCA Bot</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .login-header i {
+            font-size: 3rem;
+            color: #6c63ff;
+        }
+
+        .login-header h2 {
+            color: #333;
+            font-weight: 700;
+            margin-top: 10px;
+        }
+
+        .form-control {
+            border-radius: 10px;
+            padding: 12px;
+            border: 1px solid #ddd;
+        }
+
+        .form-control:focus {
+            border-color: #6c63ff;
+            box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.1);
+        }
+
+        .btn-login {
+            background: linear-gradient(135deg, #6c63ff, #4c46c8);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 12px;
+            font-weight: 600;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .btn-login:hover {
+            background: linear-gradient(135deg, #7a74ff, #5c54d8);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(108, 99, 255, 0.4);
+        }
+
+        .register-link {
+            text-align: center;
+            margin-top: 20px;
+            color: #666;
+        }
+
+        .register-link a {
+            color: #6c63ff;
+            font-weight: 600;
+        }
+
+        .alert {
+            border-radius: 10px;
+        }
+
+        .btn-login:disabled { opacity: .7; transform: none; box-shadow: none; }
+        .password-toggle { cursor: pointer; }
+        @media (max-width: 480px) { .login-card { margin: 16px; padding: 28px 24px; } }
+    </style>
+</head>
+
+<body>
+    <div class="login-card">
+        <div class="login-header">
+            <i class="bi bi-robot"></i>
+            <h2>EXBOT Login</h2>
+            <p class="text-muted">DCA Bot untuk Indodax</p>
+        </div>
+
+        <div id="formAlert" class="alert d-none" role="alert" aria-live="polite"></div>
+
+        <form id="loginForm" onsubmit="handleLogin(event)">
+            <div class="mb-3">
+                <label class="form-label">Username</label>
+                <input type="text" name="username" class="form-control" required autofocus autocomplete="username" minlength="3" maxlength="64">
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Password</label>
+                <div class="input-group">
+                    <input id="password" type="password" name="password" class="form-control" required autocomplete="current-password">
+                    <button class="btn btn-outline-secondary password-toggle" type="button" aria-label="Tampilkan password" onclick="togglePassword()"><i id="passwordIcon" class="bi bi-eye"></i></button>
+                </div>
+            </div>
+
+            <button id="submitButton" type="submit" class="btn btn-login">
+                <i class="bi bi-box-arrow-in-right me-2"></i><span>Login</span>
+            </button>
+        </form>
+
+        <div class="register-link">
+            Belum punya akun? <a href="/register">Register di sini</a>
+        </div>
+    </div>
+
+    <script>
+        const formAlert = document.getElementById('formAlert');
+        const submitButton = document.getElementById('submitButton');
+
+        function showAlert(message, type = 'danger') {
+            formAlert.textContent = message;
+            formAlert.className = `alert alert-${type}`;
+        }
+
+        function togglePassword() {
+            const password = document.getElementById('password');
+            const visible = password.type === 'text';
+            password.type = visible ? 'password' : 'text';
+            document.getElementById('passwordIcon').className = visible ? 'bi bi-eye' : 'bi bi-eye-slash';
+        }
+
+        async function handleLogin(event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+            const username = formData.get('username').trim();
+            formAlert.className = 'alert d-none';
+            submitButton.disabled = true;
+            submitButton.querySelector('span').textContent = 'Memproses...';
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username,
+                        password: formData.get('password')
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    window.location.href = '/';
+                } else {
+                    showAlert('Login gagal: ' + (result.error || 'Silakan coba lagi.'));
+                }
+            } catch (e) {
+                showAlert('Tidak dapat terhubung ke server. Coba lagi.');
+            } finally {
+                submitButton.disabled = false;
+                submitButton.querySelector('span').textContent = 'Login';
+            }
+        }
+
+        // Session disimpan dalam cookie HttpOnly dan tidak dapat dibaca JavaScript.
+        (async () => {
+            try {
+                const response = await fetch('/api/auth/me');
+                const result = await response.json();
+                if (result.success) window.location.href = '/';
+            } catch (_) { /* tetap di halaman login */ }
+        })();
+    </script>
+</body>
+
+</html>
