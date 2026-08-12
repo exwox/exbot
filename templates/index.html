@@ -1,0 +1,3002 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exbot DCA Bot - Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* ── Design Tokens ─────────────────────────────────────── */
+        :root {
+            --bg-base: #0d1117;
+            --bg-surface: #161b22;
+            --bg-card: #1c2333;
+            --bg-card-hover: #212840;
+            --border-soft: rgba(99, 110, 140, 0.18);
+            --border-glow: rgba(108, 99, 255, 0.28);
+
+            --accent-indigo: #6c63ff;
+            --accent-teal: #38b2ac;
+            --accent-rose: #f687b3;
+            --accent-amber: #f6ad55;
+            --accent-emerald: #48bb78;
+            --accent-slate: #94a3b8;
+
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+
+            --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.35);
+            --shadow-glow: 0 0 20px rgba(108, 99, 255, 0.15);
+            --radius-lg: 14px;
+            --radius-md: 10px;
+            --transition: all 0.22s ease;
+        }
+
+        /* ── Base ──────────────────────────────────────────────── */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg-base);
+            background-image:
+                radial-gradient(ellipse 80% 50% at 20% -10%, rgba(108, 99, 255, 0.12) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 40% at 80% 110%, rgba(56, 178, 172, 0.08) 0%, transparent 60%);
+            min-height: 100vh;
+            padding-bottom: 60px;
+            color: var(--text-primary);
+        }
+
+        /* ── Layout ────────────────────────────────────────────── */
+        .dashboard-container {
+            max-width: 1240px;
+            margin: 0 auto;
+            padding: 28px 20px 0;
+        }
+
+        /* ── Navbar ────────────────────────────────────────────── */
+        .navbar {
+            background: var(--bg-surface) !important;
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-card);
+            padding: 12px 20px;
+            margin-bottom: 22px;
+        }
+
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.2rem;
+            letter-spacing: 0.04em;
+            color: var(--accent-indigo) !important;
+        }
+
+        .navbar-brand i {
+            opacity: 0.85;
+        }
+
+        .nav-link {
+            color: var(--text-secondary) !important;
+            font-size: 0.88rem;
+            font-weight: 500;
+            padding: 6px 14px !important;
+            border-radius: var(--radius-md);
+            transition: var(--transition);
+        }
+
+        .nav-link:hover,
+        .nav-link.active {
+            color: var(--text-primary) !important;
+            background: rgba(108, 99, 255, 0.14);
+        }
+
+        /* ── Cards ─────────────────────────────────────────────── */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-card);
+            margin-bottom: 20px;
+            transition: var(--transition);
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-card), var(--shadow-glow);
+        }
+
+        .card-header {
+            background: transparent !important;
+            border-bottom: 1px solid var(--border-soft) !important;
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important;
+            padding: 14px 20px;
+            font-weight: 600;
+            font-size: 0.93rem;
+            letter-spacing: 0.02em;
+            color: var(--text-primary);
+        }
+
+        .card-header .header-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            font-size: 0.85rem;
+        }
+
+        .card-header.h-indigo .header-icon {
+            background: rgba(108, 99, 255, 0.18);
+            color: var(--accent-indigo);
+        }
+
+        .card-header.h-teal .header-icon {
+            background: rgba(56, 178, 172, 0.18);
+            color: var(--accent-teal);
+        }
+
+        .card-header.h-rose .header-icon {
+            background: rgba(246, 135, 179, 0.18);
+            color: var(--accent-rose);
+        }
+
+        .card-header.h-amber .header-icon {
+            background: rgba(246, 173, 85, 0.18);
+            color: var(--accent-amber);
+        }
+
+        .card-header.h-slate .header-icon {
+            background: rgba(148, 163, 184, 0.14);
+            color: var(--accent-slate);
+        }
+
+        .card-header.h-emerald .header-icon {
+            background: rgba(72, 187, 120, 0.18);
+            color: var(--accent-emerald);
+        }
+
+        .card-body {
+            color: var(--text-primary);
+        }
+
+        /* ── Stat Cards ─────────────────────────────────────────── */
+        .stat-card {
+            padding: 22px 18px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: -30px;
+            right: -20px;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            opacity: 0.06;
+        }
+
+        .stat-card.s-price::before {
+            background: var(--accent-indigo);
+        }
+
+        .stat-card.s-idr::before {
+            background: var(--accent-teal);
+        }
+
+        .stat-card.s-crypto::before {
+            background: var(--accent-amber);
+        }
+
+        .stat-card.s-trades::before {
+            background: var(--accent-rose);
+        }
+
+        .stat-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            margin-bottom: 12px;
+        }
+
+        .s-price .stat-icon {
+            background: rgba(108, 99, 255, 0.15);
+            color: var(--accent-indigo);
+        }
+
+        .s-idr .stat-icon {
+            background: rgba(56, 178, 172, 0.15);
+            color: var(--accent-teal);
+        }
+
+        .s-crypto .stat-icon {
+            background: rgba(246, 173, 85, 0.15);
+            color: var(--accent-amber);
+        }
+
+        .s-trades .stat-icon {
+            background: rgba(246, 135, 179, 0.15);
+            color: var(--accent-rose);
+        }
+
+        .stat-value {
+            font-size: 1.55rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.2;
+            letter-spacing: -0.02em;
+        }
+
+        .stat-label {
+            color: var(--text-muted);
+            font-size: 0.78rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-top: 4px;
+        }
+
+        /* ── Status Bar ─────────────────────────────────────────── */
+        .status-bar {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius-lg);
+            padding: 13px 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.86rem;
+        }
+
+        .status-bar .info-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-soft);
+            border-radius: 20px;
+            padding: 4px 12px;
+            color: var(--text-secondary);
+        }
+
+        .status-bar .info-pill strong {
+            color: var(--text-primary);
+        }
+
+        .status-bar .info-pill .val {
+            color: var(--accent-indigo);
+            font-weight: 600;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            flex-shrink: 0;
+        }
+
+        .status-running {
+            background: var(--accent-emerald);
+            box-shadow: 0 0 6px var(--accent-emerald);
+            animation: pulse-dot 2s infinite;
+        }
+
+        .status-stopped {
+            background: var(--accent-rose);
+        }
+
+        @keyframes pulse-dot {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.35;
+            }
+        }
+
+        /* ── Mode Badge ─────────────────────────────────────────── */
+        #mode-badge {
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            border-radius: 20px;
+            padding: 4px 12px;
+        }
+
+        /* ── Tables ─────────────────────────────────────────────── */
+        .table {
+            color: var(--text-primary);
+            font-size: 0.86rem;
+        }
+
+        .table thead th {
+            color: var(--text-muted);
+            font-size: 0.74rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            border-bottom: 1px solid var(--border-soft);
+            padding: 10px 12px;
+            background: transparent;
+        }
+
+        .table tbody td {
+            border-bottom: 1px solid rgba(99, 110, 140, 0.09);
+            padding: 10px 12px;
+            vertical-align: middle;
+        }
+
+        .table-hover tbody tr:hover td {
+            background: rgba(108, 99, 255, 0.06);
+        }
+
+        /* ── Buttons ─────────────────────────────────────────────── */
+        .btn-trade {
+            border-radius: 10px;
+            padding: 10px 0;
+            font-weight: 600;
+            font-size: 0.9rem;
+            letter-spacing: 0.02em;
+            transition: var(--transition);
+            border: none;
+        }
+
+        .btn-buy {
+            background: linear-gradient(135deg, #6c63ff, #4c46c8);
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(108, 99, 255, 0.35);
+        }
+
+        .btn-buy:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(108, 99, 255, 0.45);
+            color: #fff;
+        }
+
+        .btn-start {
+            background: linear-gradient(135deg, #38b2ac, #2c8e8a);
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(56, 178, 172, 0.3);
+        }
+
+        .btn-start:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(56, 178, 172, 0.4);
+            color: #fff;
+        }
+
+        .btn-stop {
+            background: linear-gradient(135deg, #f687b3, #c05b8c);
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(246, 135, 179, 0.3);
+        }
+
+        .btn-stop:hover {
+            transform: translateY(-2px);
+            color: #fff;
+        }
+
+        /* override Bootstrap primary/success/warning for btn-trade fallback */
+        .btn-primary.btn-trade {
+            background: linear-gradient(135deg, #6c63ff, #4c46c8);
+            border: none;
+            box-shadow: 0 4px 14px rgba(108, 99, 255, .35);
+        }
+
+        .btn-success.btn-trade {
+            background: linear-gradient(135deg, #38b2ac, #2c8e8a);
+            border: none;
+            box-shadow: 0 4px 14px rgba(56, 178, 172, .3);
+        }
+
+        .btn-warning.btn-trade {
+            background: linear-gradient(135deg, #f6ad55, #d97706);
+            border: none;
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(246, 173, 85, .3);
+        }
+
+        /* ── DCA Stats grid ─────────────────────────────────────── */
+        .dca-stat-item {
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(99, 110, 140, 0.09);
+        }
+
+        .dca-stat-item:last-child {
+            border-bottom: none;
+        }
+
+        .dca-stat-label {
+            font-size: 0.76rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+        }
+
+        .dca-stat-value {
+            font-weight: 600;
+            font-size: 1.05rem;
+            color: var(--text-primary);
+        }
+
+        /* ── P/L colors ─────────────────────────────────────────── */
+        .profit-positive {
+            color: var(--accent-emerald) !important;
+        }
+
+        .profit-negative {
+            color: var(--accent-rose) !important;
+        }
+
+        /* ── Badges ─────────────────────────────────────────────── */
+        .badge {
+            font-size: 0.72rem;
+            font-weight: 600;
+            border-radius: 6px;
+            padding: 3px 8px;
+        }
+
+        .badge.bg-success {
+            background: rgba(72, 187, 120, 0.18) !important;
+            color: var(--accent-emerald) !important;
+        }
+
+        .badge.bg-danger {
+            background: rgba(246, 135, 179, 0.18) !important;
+            color: var(--accent-rose) !important;
+        }
+
+        .badge.bg-warning {
+            background: rgba(246, 173, 85, 0.18) !important;
+            color: var(--accent-amber) !important;
+        }
+
+        .badge.bg-info {
+            background: rgba(56, 178, 172, 0.18) !important;
+            color: var(--accent-teal) !important;
+        }
+
+        .badge.bg-secondary {
+            background: rgba(148, 163, 184, 0.14) !important;
+            color: var(--accent-slate) !important;
+        }
+
+        .badge.bg-primary {
+            background: rgba(108, 99, 255, 0.18) !important;
+            color: var(--accent-indigo) !important;
+        }
+
+        /* ── Chart card dark override ────────────────────────────── */
+        .chart-card {
+            background: #131722;
+            border-color: rgba(99, 110, 140, 0.14);
+        }
+
+        .chart-card .card-header {
+            background: transparent !important;
+            border-bottom: 1px solid rgba(99, 110, 140, 0.14) !important;
+            color: #d1d4dc;
+        }
+
+        .chart-card .card-body { padding: 10px 12px 4px; }
+        .spoiler-header { cursor: pointer; user-select: none; }
+        .spoiler-header .spoiler-chevron { transition: transform .22s ease; }
+        .spoiler-header:not(.collapsed) .spoiler-chevron { transform: rotate(180deg); }
+        .chart-meta { display: flex; gap: 8px; align-items: center; font-size: .78rem; color: var(--text-muted); }
+        .chart-price { color: #f8fafc; font-weight: 700; letter-spacing: .01em; }
+        .chart-change { padding: 3px 7px; border-radius: 6px; font-weight: 700; }
+        .chart-change.positive { color: #3ddc97; background: rgba(38, 166, 154, .13); }
+        .chart-change.negative { color: #ff7b8d; background: rgba(239, 83, 80, .13); }
+        #chart-pair-select, #chart-mode-select {
+            background-color: rgba(20, 29, 51, .92); color: var(--text-primary);
+            border-color: rgba(143, 154, 190, .35); font-weight: 600;
+        }
+        #chart-pair-select:focus, #chart-mode-select:focus {
+            border-color: var(--accent-indigo); box-shadow: 0 0 0 .15rem rgba(108, 99, 255, .2);
+        }
+        @media (max-width: 767px) {
+            .dashboard-container {
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+            .chart-card {
+                width: calc(100% + 20px);
+                margin-left: -10px;
+                margin-right: -10px;
+                border-left: 0;
+                border-right: 0;
+                border-radius: 0;
+            }
+            .chart-card .card-header { align-items: flex-start !important; gap: 10px; flex-direction: column; }
+            .chart-card .card-header > div:last-child { width: 100%; flex-wrap: wrap; }
+            .chart-card .card-body { padding: 2px 0 0; }
+            #candlestick-chart { width: 100vw !important; height: 520px !important; }
+        }
+
+        /* ── Crypto balances collapse header ─────────────────────── */
+        .wallet-header {
+            background: rgba(56, 178, 172, 0.08);
+            border-bottom: 1px solid rgba(56, 178, 172, 0.18);
+            color: var(--accent-teal);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .wallet-header:hover {
+            background: rgba(56, 178, 172, 0.14);
+        }
+
+        /* ── Refresh FAB ─────────────────────────────────────────── */
+        .refresh-btn {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            font-size: 1.2rem;
+            z-index: 1000;
+            background: linear-gradient(135deg, var(--accent-indigo), #4c46c8);
+            border: none;
+            color: #fff;
+            box-shadow: 0 4px 18px rgba(108, 99, 255, 0.4);
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .refresh-btn:hover {
+            transform: rotate(45deg) scale(1.08);
+            box-shadow: 0 6px 24px rgba(108, 99, 255, 0.55);
+            color: #fff;
+        }
+
+        /* ── Scrollbar ───────────────────────────────────────────── */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-base);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(108, 99, 255, 0.3);
+            border-radius: 3px;
+        }
+
+        /* ── Animations ──────────────────────────────────────────── */
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(14px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .card {
+            animation: fadeUp 0.35s ease both;
+        }
+
+        .card:nth-child(1) {
+            animation-delay: 0.05s;
+        }
+
+        .card:nth-child(2) {
+            animation-delay: 0.10s;
+        }
+
+        .card:nth-child(3) {
+            animation-delay: 0.15s;
+        }
+
+        .card:nth-child(4) {
+            animation-delay: 0.20s;
+        }
+
+        /* ── Misc Bootstrap overrides ────────────────────────────── */
+        hr {
+            border-color: var(--border-soft);
+        }
+
+        small.text-muted {
+            color: var(--text-muted) !important;
+        }
+
+
+        /* ── Crypto balances collapse header ─────────────────────── */
+        .wallet-header {
+            background: rgba(56, 178, 172, 0.08);
+            border-bottom: 1px solid rgba(56, 178, 172, 0.18);
+            color: var(--accent-teal);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .wallet-header:hover {
+            background: rgba(56, 178, 172, 0.14);
+        }
+
+        /* ── Refresh FAB ─────────────────────────────────────────── */
+        .refresh-btn {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            font-size: 1.2rem;
+            z-index: 1000;
+            background: linear-gradient(135deg, var(--accent-indigo), #4c46c8);
+            border: none;
+            color: #fff;
+            box-shadow: 0 4px 18px rgba(108, 99, 255, 0.4);
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .refresh-btn:hover {
+            transform: rotate(45deg) scale(1.08);
+            box-shadow: 0 6px 24px rgba(108, 99, 255, 0.55);
+            color: #fff;
+        }
+
+        /* ── Scrollbar ───────────────────────────────────────────── */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-base);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(108, 99, 255, 0.3);
+            border-radius: 3px;
+        }
+
+        /* ── Animations ──────────────────────────────────────────── */
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(14px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .card {
+            animation: fadeUp 0.35s ease both;
+        }
+
+        .card:nth-child(1) {
+            animation-delay: 0.05s;
+        }
+
+        .card:nth-child(2) {
+            animation-delay: 0.10s;
+        }
+
+        .card:nth-child(3) {
+            animation-delay: 0.15s;
+        }
+
+        .card:nth-child(4) {
+            animation-delay: 0.20s;
+        }
+
+        /* ── Misc Bootstrap overrides ────────────────────────────── */
+        hr {
+            border-color: var(--border-soft);
+        }
+
+        small.text-muted {
+            color: var(--text-muted) !important;
+        }
+
+        .text-muted {
+            color: var(--text-muted) !important;
+        }
+
+        .form-control,
+        .form-select {
+            background: var(--bg-surface);
+            border-color: var(--border-soft);
+            color: var(--text-primary);
+        }
+
+        .form-control:focus,
+        .form-select:focus {
+            background: var(--bg-surface);
+            border-color: var(--accent-indigo);
+            color: var(--text-primary);
+            box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.18);
+        }
+
+        /* Timeframe/chart type button override */
+        .btn-outline-light {
+            border-color: var(--border-soft);
+            color: var(--text-secondary);
+        }
+
+        .trade-table {
+            font-size: 0.84rem;
+        }
+
+        .strategy-bot-item {
+            background: rgba(13, 17, 23, 0.42);
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius-md);
+            padding: 16px;
+        }
+
+        .strategy-bot-number {
+            width: 32px;
+            height: 32px;
+            border-radius: 9px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(108, 99, 255, 0.16);
+            color: var(--accent-indigo);
+            font-weight: 700;
+            flex: 0 0 auto;
+        }
+
+        .strategy-setting {
+            display: inline-flex;
+            gap: 5px;
+            align-items: center;
+            padding: 5px 9px;
+            border-radius: 8px;
+            background: rgba(99, 110, 140, 0.10);
+            color: var(--text-secondary);
+            font-size: 0.76rem;
+        }
+
+        .strategy-setting strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <!-- Navigation -->
+        <nav class="navbar navbar-expand-lg navbar-dark mb-0">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="/">
+                    <i class="bi bi-robot me-2"></i>EXBOT
+                </a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" style="border-color:var(--border-soft);">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav ms-auto">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="/"><i class="bi bi-speedometer2 me-1"></i>Dashboard</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/trades"><i class="bi bi-arrow-left-right me-1"></i>Riwayat Trade</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/backtest"><i class="bi bi-beaker me-1"></i>Backtest</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/settings"><i class="bi bi-gear me-1"></i>Settings</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/logs"><i class="bi bi-file-text me-1"></i>Logs</a>
+                        </li>
+                        <li class="nav-item" id="nav-admin" style="display: none;">
+                            <a class="nav-link text-warning" href="/admin"><i class="bi bi-shield-lock me-1"></i>Admin</a>
+                        </li>
+                        <li class="nav-item" id="nav-login" style="display: none;">
+                            <a class="nav-link" href="/login"><i class="bi bi-box-arrow-in-right me-1"></i>Login</a>
+                        </li>
+                        <li class="nav-item" id="nav-register" style="display: none;">
+                            <a class="nav-link" href="/register"><i class="bi bi-person-plus me-1"></i>Register</a>
+                        </li>
+                        <li class="nav-item" id="nav-user" style="display: none;">
+                            <a class="nav-link" href="#"><i class="bi bi-person me-1"></i><span id="username-display"></span></a>
+                        </li>
+                        <li class="nav-item" id="nav-logout" style="display: none;">
+                            <a class="nav-link text-danger" href="#" onclick="logout()"><i class="bi bi-box-arrow-right me-1"></i>Logout</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Status Bar -->
+        <div class="status-bar mt-3">
+            <div class="d-flex align-items-center flex-wrap gap-2">
+                <span class="info-pill">
+                    <span class="status-indicator status-stopped" id="status-indicator"></span>
+                    <strong>Status</strong>
+                    <span class="val" id="status-text">Stopped</span>
+                </span>
+                <span class="info-pill">
+                    <i class="bi bi-clock" style="font-size:0.75rem;"></i>
+                    <strong>Next</strong>
+                    <span class="val" id="next-trade-text">-</span>
+                </span>
+                <span class="info-pill">
+                    <i class="bi bi-bullseye" style="font-size:0.75rem;"></i>
+                    <strong>TP</strong>
+                    <span class="val" id="tp-text">-</span>
+                </span>
+                <span class="info-pill cursor-pointer" id="sound-control-pill" onclick="toggleSound()"
+                    style="cursor: pointer; user-select: none;">
+                    <i class="bi bi-volume-mute" id="sound-icon"
+                        style="font-size:0.75rem; color: var(--accent-rose);"></i>
+                    <strong>Suara</strong>
+                    <span class="val" id="sound-text" style="color: var(--accent-rose);">Muted</span>
+                </span>
+            </div>
+            <div>
+                <span class="badge bg-secondary" id="mode-badge">UNKNOWN</span>
+            </div>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="row">
+            <div class="col-6 col-md-3">
+                <div class="card stat-card s-price">
+                    <div class="stat-icon"><i class="bi bi-graph-up-arrow"></i></div>
+                    <div class="stat-value">Rp 0</div>
+                    <div class="stat-label">Harga Market</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card stat-card s-idr">
+                    <div class="stat-icon"><i class="bi bi-wallet2"></i></div>
+                    <div class="stat-value">Rp 0</div>
+                    <div class="stat-label">Saldo IDR</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card stat-card s-crypto">
+                    <div class="stat-icon"><i class="bi bi-coin"></i></div>
+                    <div class="stat-value">0.00000000</div>
+                    <div class="stat-label">Saldo Crypto</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card stat-card s-trades">
+                    <div class="stat-icon"><i class="bi bi-arrow-repeat"></i></div>
+                    <div class="stat-value">0</div>
+                    <div class="stat-label">Total Trades</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bot Strategy Overview -->
+        <div class="card" id="strategy-bots-card">
+            <div class="card-header h-indigo spoiler-header collapsed d-flex justify-content-between align-items-center"
+                data-bs-toggle="collapse" data-bs-target="#strategy-bots-collapse"
+                aria-expanded="false" aria-controls="strategy-bots-collapse">
+                <span><span class="header-icon"><i class="bi bi-sliders"></i></span>Strategy Bot</span>
+                <span class="d-flex align-items-center gap-2">
+                    <span class="badge bg-secondary" id="strategy-bot-count">0 Bot</span>
+                    <i class="bi bi-chevron-down spoiler-chevron"></i>
+                </span>
+            </div>
+            <div class="collapse" id="strategy-bots-collapse">
+                <div class="card-body">
+                    <div id="strategy-bots-list" class="d-grid gap-3">
+                        <div class="text-center py-4" style="color:var(--text-muted);">
+                            <div class="spinner-border spinner-border-sm" role="status"></div>
+                            <p class="mt-2 mb-0">Memuat setting bot...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Candlestick Chart -->
+        <div class="card chart-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div><span><span class="header-icon"
+                        style="background:rgba(108,99,255,0.15);color:var(--accent-indigo);display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;margin-right:10px;"><i
+                            class="bi bi-bar-chart-line"></i></span>Chart Harga</span>
+                    <div class="chart-meta mt-1 ms-1"><span id="chart-pair">MARKET</span><span class="chart-price" id="chart-last-price">—</span><span class="chart-change" id="chart-change">—</span></div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <div class="d-flex align-items-center gap-1" aria-label="Filter chart">
+                        <select id="chart-pair-select" class="form-select form-select-sm" style="min-width:105px;"
+                            onchange="onChartPairChanged()" aria-label="Pilih pair chart">
+                            <option value="">Pair...</option>
+                        </select>
+                        <select id="chart-mode-select" class="form-select form-select-sm" style="min-width:112px;"
+                            onchange="onChartModeChanged()" aria-label="Pilih mode bot">
+                            <option value="">Mode...</option>
+                        </select>
+                    </div>
+                    <div class="btn-group me-2" role="group">
+                        <button class="btn btn-sm btn-outline-success active chart-type-btn" id="btn-chart-plotly"
+                            onclick="switchChartType('plotly')">Plotly</button>
+                        <button class="btn btn-sm btn-outline-success chart-type-btn" id="btn-chart-tv"
+                            onclick="switchChartType('tradingview')">TradingView</button>
+                    </div>
+                    <div class="btn-group" role="group" id="timeframe-selector-group">
+                        <button class="btn btn-sm btn-outline-light timeframe-btn" data-timeframe="1m">1M</button>
+                        <button class="btn btn-sm btn-outline-light timeframe-btn" data-timeframe="5m">5M</button>
+                        <button class="btn btn-sm btn-outline-light timeframe-btn" data-timeframe="15m">15M</button>
+                        <button class="btn btn-sm btn-outline-light active timeframe-btn"
+                            data-timeframe="1h">1H</button>
+                        <button class="btn btn-sm btn-outline-light timeframe-btn" data-timeframe="4h">4H</button>
+                        <button class="btn btn-sm btn-outline-light timeframe-btn" data-timeframe="1d">1D</button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="candlestick-chart" style="width: 100%; height: 580px;">
+                    <div class="text-center text-muted py-5">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Memuat data chart...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- All Crypto Balances -->
+        <div class="card mb-4">
+            <div class="card-header wallet-header d-flex justify-content-between align-items-center"
+                data-bs-toggle="collapse" data-bs-target="#crypto-balances-collapse" aria-expanded="false"
+                aria-controls="crypto-balances-collapse">
+                <div>
+                    <i class="bi bi-wallet2 me-2"></i>Saldo Crypto Anda
+                    <i class="bi bi-chevron-down ms-2" id="crypto-chevron"
+                        style="font-size: 0.8rem; transition: transform 0.25s;"></i>
+                </div>
+                <span class="fw-semibold" style="color:var(--accent-teal);">Total: Rp 0</span>
+            </div>
+            <div class="collapse" id="crypto-balances-collapse">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th class="text-center" style="width: 70px;">Icon</th>
+                                    <th>Crypto</th>
+                                    <th>Pair</th>
+                                    <th>Saldo</th>
+                                    <th>Harga</th>
+                                    <th>Nilai (IDR)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">Memuat data...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DCA Statistics -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header h-indigo">
+                        <span class="header-icon"><i class="bi bi-bar-chart"></i></span>Statistik DCA
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-0">
+                            <div class="col-6">
+                                <div class="dca-stat-item pe-3">
+                                    <div class="dca-stat-label">Total Invested</div>
+                                    <div class="dca-stat-value" id="dca-total-invested">Rp 0</div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="dca-stat-item ps-3">
+                                    <div class="dca-stat-label">Total Crypto</div>
+                                    <div class="dca-stat-value" id="dca-total-crypto">0.00000000</div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="dca-stat-item pe-3">
+                                    <div class="dca-stat-label">Average Buy Price</div>
+                                    <div class="dca-stat-value" id="dca-avg-price">Rp 0</div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="dca-stat-item ps-3">
+                                    <div class="dca-stat-label">Profit / Loss (U.P/L)</div>
+                                    <div class="dca-stat-value" id="dca-profit-loss">+0.00%</div>
+                                </div>
+                            </div>
+                            <div class="col-12 mt-2 pt-2 border-top"
+                                style="border-color: rgba(99,110,140,0.12) !important;">
+                                <div class="dca-stat-item d-flex justify-content-between align-items-center">
+                                    <div class="dca-stat-label">Total Realized Profit</div>
+                                    <div class="dca-stat-value" id="dca-realized-profit"
+                                        style="color: var(--accent-emerald); font-weight: 700;">Rp 0</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- DCA Cycle Statistics -->
+        <div class="card" id="dca-cycles-card">
+            <div class="card-header h-teal spoiler-header d-flex justify-content-between align-items-center"
+                data-bs-toggle="collapse" data-bs-target="#dca-cycles-collapse"
+                aria-expanded="true" aria-controls="dca-cycles-collapse">
+                <span><span class="header-icon"><i class="bi bi-arrow-repeat"></i></span>Siklus DCA</span>
+                <i class="bi bi-chevron-down spoiler-chevron"></i>
+            </div>
+            <div class="collapse show" id="dca-cycles-collapse">
+                <div class="card-body">
+                    <div class="row g-2 mb-3" id="cycle-summary">
+                        <div class="col-6 col-md-3"><div class="strategy-setting w-100 justify-content-between"><span>Siklus Selesai</span><strong id="cycle-closed">0</strong></div></div>
+                        <div class="col-6 col-md-3"><div class="strategy-setting w-100 justify-content-between"><span>Win Rate</span><strong id="cycle-win-rate">0%</strong></div></div>
+                        <div class="col-6 col-md-3"><div class="strategy-setting w-100 justify-content-between"><span>Rata-rata Durasi</span><strong id="cycle-duration">0 jam</strong></div></div>
+                        <div class="col-6 col-md-3"><div class="strategy-setting w-100 justify-content-between"><span>Total Fee</span><strong id="cycle-fees">Rp 0</strong></div></div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm trade-table align-middle mb-0">
+                            <thead><tr><th>Mulai</th><th>Status</th><th>Pair</th><th>Modal</th><th>SO</th><th>Exit</th><th>Profit</th><th>Durasi</th></tr></thead>
+                            <tbody id="cycles-table-body">
+                                <tr><td colspan="8" class="text-center text-muted py-3">Memuat siklus...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Open Orders -->
+        <div class="card" id="open-orders-card">
+            <div class="card-header h-rose">
+                <span class="header-icon"><i class="bi bi-journal-text"></i></span>Open Order Aktif
+            </div>
+            <div class="card-body" id="open-orders-body">
+                <div class="text-center py-4" style="color:var(--text-muted);">
+                    <i class="bi bi-inbox" style="font-size:2.5rem;opacity:0.4;"></i>
+                    <p class="mt-2 mb-0" style="font-size:0.85rem;">Memuat data open order...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Exchange Trade History -->
+        <div class="card" id="exchange-trades-card">
+            <div class="card-header h-slate spoiler-header collapsed d-flex justify-content-between align-items-center"
+                data-bs-toggle="collapse" data-bs-target="#exchange-trades-collapse" aria-expanded="false"
+                aria-controls="exchange-trades-collapse">
+                <span><span class="header-icon"><i class="bi bi-arrow-left-right"></i></span>Riwayat Trade Indodax</span>
+                <i class="bi bi-chevron-down spoiler-chevron"></i>
+            </div>
+            <div class="collapse" id="exchange-trades-collapse">
+                <div class="card-body" id="exchange-trades-body">
+                    <div class="text-center py-4" style="color:var(--text-muted);">
+                        <i class="bi bi-inbox" style="font-size:2.5rem;opacity:0.4;"></i>
+                        <p class="mt-2 mb-0" style="font-size:0.85rem;">Memuat data riwayat trade...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Trades (Local Bot) -->
+        <div class="card" id="recent-trades-card">
+            <div class="card-header h-emerald">
+                <span class="header-icon"><i class="bi bi-clock-history"></i></span>Riwayat Trade Bot
+            </div>
+            <div class="card-body" id="recent-trades-body">
+                <div class="text-center py-4" style="color:var(--text-muted);">
+                    <i class="bi bi-inbox" style="font-size:2.5rem;opacity:0.4;"></i>
+                    <p class="mt-2 mb-0" style="font-size:0.85rem;">Belum ada riwayat trade</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Refresh Button -->
+    <button class="btn btn-primary refresh-btn" onclick="location.reload()" title="Refresh">
+        <i class="bi bi-arrow-clockwise"></i>
+    </button>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.navbar-toggler[data-bs-target]').forEach(button => {
+                button.addEventListener('click', () => {
+                    if (window.bootstrap?.Collapse) return;
+                    const target = document.querySelector(button.dataset.bsTarget);
+                    if (!target) return;
+                    const opened = target.classList.toggle('show');
+                    button.setAttribute('aria-expanded', String(opened));
+                });
+            });
+        });
+    </script>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <script src="https://s3.tradingview.com/tv.js"></script>
+    <script>
+        // Sound Notification System (Web Audio API Synthesizer)
+        let audioCtx = null;
+        (async function requireSession() {
+            try {
+                const result = await (await fetch('/api/auth/me')).json();
+                if (!result.success) throw new Error('Invalid session');
+                const user = result.data || result.user;
+                if (user && user.is_admin) {
+                    const navAdmin = document.getElementById('nav-admin');
+                    if (navAdmin) navAdmin.style.display = 'block';
+                }
+            } catch (_) { window.location.replace('/login'); }
+        })();
+
+        let isSoundEnabled = localStorage.getItem('sound_enabled') !== 'false'; // Defaults to true
+        // Same-origin requests automatically include the HttpOnly session cookie.
+        let previousTrades = null;
+        let previousOpenOrderIds = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function updateSoundUI() {
+            const icon = document.getElementById('sound-icon');
+            const text = document.getElementById('sound-text');
+            if (icon && text) {
+                if (isSoundEnabled) {
+                    icon.className = 'bi bi-volume-up';
+                    icon.style.color = '#39FF14'; // Emerald/lime green accent
+                    text.textContent = 'Aktif';
+                    text.style.color = '#39FF14';
+                } else {
+                    icon.className = 'bi bi-volume-mute';
+                    icon.style.color = 'var(--accent-rose, #ff6b6b)';
+                    text.textContent = 'Muted';
+                    text.style.color = 'var(--accent-rose, #ff6b6b)';
+                }
+            }
+        }
+
+        function toggleSound() {
+            isSoundEnabled = !isSoundEnabled;
+            localStorage.setItem('sound_enabled', isSoundEnabled);
+            updateSoundUI();
+
+            if (isSoundEnabled) {
+                initAudio();
+                // Play a brief test chime so the user knows sound is working
+                setTimeout(() => {
+                    playTestChime();
+                }, 50);
+            }
+        }
+
+        // Play test chime to confirm audio activation
+        function playTestChime() {
+            initAudio();
+            if (!audioCtx || audioCtx.state === 'suspended') return;
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(1046.50, now); // C6
+            gain.gain.setValueAtTime(0, now);
+            gain.gain.linearRampToValueAtTime(0.08, now + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(now);
+            osc.stop(now + 0.15);
+        }
+
+        // Play pleasant rising sweep for Buy trades
+        function playBuySound() {
+            if (!isSoundEnabled) return;
+            initAudio();
+            if (!audioCtx || audioCtx.state === 'suspended') return;
+
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(523.25, now); // C5
+            osc.frequency.exponentialRampToValueAtTime(880.00, now + 0.18); // A5
+            gain.gain.setValueAtTime(0, now);
+            gain.gain.linearRampToValueAtTime(0.15, now + 0.04);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(now);
+            osc.stop(now + 0.4);
+        }
+
+        // Play cash register/success double-chime for Sell trades (TP)
+        function playSellSound() {
+            if (!isSoundEnabled) return;
+            initAudio();
+            if (!audioCtx || audioCtx.state === 'suspended') return;
+
+            const now = audioCtx.currentTime;
+
+            // First chime (E5)
+            const osc1 = audioCtx.createOscillator();
+            const gain1 = audioCtx.createGain();
+            osc1.type = 'sine';
+            osc1.frequency.setValueAtTime(659.25, now);
+            gain1.gain.setValueAtTime(0, now);
+            gain1.gain.linearRampToValueAtTime(0.12, now + 0.02);
+            gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+            osc1.connect(gain1);
+            gain1.connect(audioCtx.destination);
+            osc1.start(now);
+            osc1.stop(now + 0.25);
+
+            // Second chime (B5)
+            const osc2 = audioCtx.createOscillator();
+            const gain2 = audioCtx.createGain();
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(987.77, now + 0.08);
+            gain2.gain.setValueAtTime(0, now + 0.08);
+            gain2.gain.linearRampToValueAtTime(0.12, now + 0.1);
+            gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+            osc2.connect(gain2);
+            gain2.connect(audioCtx.destination);
+            osc2.start(now + 0.08);
+            osc2.stop(now + 0.45);
+        }
+
+        // Play soft bubble pop for open order placement
+        function playOrderPlacedSound() {
+            if (!isSoundEnabled) return;
+            initAudio();
+            if (!audioCtx || audioCtx.state === 'suspended') return;
+
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(800.00, now);
+            osc.frequency.exponentialRampToValueAtTime(1200.00, now + 0.08);
+            gain.gain.setValueAtTime(0, now);
+            gain.gain.linearRampToValueAtTime(0.05, now + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(now);
+            osc.stop(now + 0.12);
+        }
+
+        // Global variables for chart
+        let currentTimeframe = '1h';
+        let chartUpdateInterval = null;
+        let activeChartType = 'plotly';
+        let chartBots = [];
+        let selectedChartBotId = '';
+
+        function chartBotQuery() {
+            return selectedChartBotId ? `bot_id=${encodeURIComponent(selectedChartBotId)}` : '';
+        }
+
+        function selectedChartBot() {
+            return chartBots.find(bot => bot.id === selectedChartBotId) || null;
+        }
+
+        // SO price deviation is cumulative: SO2 is another interval below
+        // SO1, not a duplicate of it. Step Scale changes each interval.
+        function getDcaSoDistance(soNumber, baseDistance, stepScale, stepScaleEnabled) {
+            const level = Math.max(parseInt(soNumber) || 1, 1);
+            const distance = parseFloat(baseDistance) || 0;
+            const scale = parseFloat(stepScale) || 1;
+            let total = 0;
+            for (let index = 0; index < level; index++) {
+                total += distance * (stepScaleEnabled ? Math.pow(scale, index) : 1);
+            }
+            return total;
+        }
+
+        async function loadChartSelections() {
+            const pairSelect = document.getElementById('chart-pair-select');
+            const modeSelect = document.getElementById('chart-mode-select');
+            try {
+                const response = await fetch('/api/chart-options');
+                const result = await response.json();
+                chartBots = result.success && Array.isArray(result.data) ? result.data : [];
+                const pairs = [...new Set(chartBots.map(bot => bot.pair.toUpperCase()))];
+                pairSelect.innerHTML = pairs.length
+                    ? pairs.map(pair => `<option value="${pair}">${pair}</option>`).join('')
+                    : '<option value="">Belum ada bot</option>';
+                if (pairs.length) populateChartModes(pairs[0]);
+                else modeSelect.innerHTML = '<option value="">Mode...</option>';
+            } catch (error) {
+                console.error('Gagal memuat pilihan chart:', error);
+                pairSelect.innerHTML = '<option value="">Pair tidak tersedia</option>';
+                modeSelect.innerHTML = '<option value="">Mode tidak tersedia</option>';
+            }
+        }
+
+        function populateChartModes(pair) {
+            const modeSelect = document.getElementById('chart-mode-select');
+            const matchingBots = chartBots.filter(bot => bot.pair.toUpperCase() === pair);
+            const hasDryRunBot = matchingBots.some(bot => bot.dry_run);
+            const hasRealBot = matchingBots.some(bot => !bot.dry_run);
+            // Always expose both modes. A disabled mode signals that the user
+            // must create/edit a bot in Settings first; it avoids displaying
+            // dry-run data as if it were an open real-trade position.
+            modeSelect.innerHTML = [
+                `<option value="dry" ${hasDryRunBot ? '' : 'disabled'}>Dry Run${hasDryRunBot ? '' : ' — belum ada bot'}</option>`,
+                `<option value="real" ${hasRealBot ? '' : 'disabled'}>Real Trade${hasRealBot ? '' : ' — belum ada bot'}</option>`
+            ].join('');
+            const mode = hasDryRunBot ? 'dry' : (hasRealBot ? 'real' : '');
+            if (mode) {
+                modeSelect.value = mode;
+                selectedChartBotId = (matchingBots.find(bot => (bot.dry_run ? 'dry' : 'real') === mode) || {}).id || '';
+            } else {
+                selectedChartBotId = '';
+            }
+        }
+
+        function onChartPairChanged() {
+            populateChartModes(document.getElementById('chart-pair-select').value);
+            refreshSelectedChartContext();
+        }
+
+        function onChartModeChanged() {
+            const pair = document.getElementById('chart-pair-select').value;
+            const mode = document.getElementById('chart-mode-select').value;
+            selectedChartBotId = (chartBots.find(bot => bot.pair.toUpperCase() === pair &&
+                (bot.dry_run ? 'dry' : 'real') === mode) || {}).id || '';
+            refreshSelectedChartContext();
+        }
+
+        // Auth functions
+        function logout() {
+            fetch('/api/auth/logout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            }).then(() => {
+                window.location.href = '/login';
+            });
+        }
+
+        function updateAuthUI() {
+            const navLogin = document.getElementById('nav-login');
+            const navRegister = document.getElementById('nav-register');
+            const navUser = document.getElementById('nav-user');
+            const navLogout = document.getElementById('nav-logout');
+            const usernameDisplay = document.getElementById('username-display');
+            const subTextEl = document.getElementById('subscription-text');
+
+            {
+                // Get user info
+                fetch('/api/auth/me')
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success && data.data) {
+                            const user = data.data;
+                            if (navLogin) navLogin.style.display = 'none';
+                            if (navRegister) navRegister.style.display = 'none';
+                            if (navUser) {
+                                navUser.style.display = 'block';
+                                if (usernameDisplay) usernameDisplay.textContent = user.username;
+                            }
+                            if (navLogout) navLogout.style.display = 'block';
+
+                            if (subTextEl) {
+                                if (user.expired_at) {
+                                    const rawDate = user.expired_at.split('T')[0];
+                                    const parts = rawDate.split('-');
+                                    const dateFormatted = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : rawDate;
+                                    const expTime = user.expired_at.includes('T') ? new Date(user.expired_at).getTime() : new Date(user.expired_at + 'T23:59:59').getTime();
+                                    if (Date.now() > expTime) {
+                                        subTextEl.textContent = `Expired (${dateFormatted})`;
+                                        subTextEl.style.color = 'var(--accent-rose)';
+                                    } else {
+                                        subTextEl.textContent = `s.d. ${dateFormatted}`;
+                                        subTextEl.style.color = 'var(--accent-teal)';
+                                    }
+                                } else {
+                                    subTextEl.textContent = 'Permanen';
+                                    subTextEl.style.color = 'var(--accent-emerald)';
+                                }
+                            }
+                        } else {
+                            // Invalid session
+                            if (navLogin) navLogin.style.display = 'block';
+                            if (navRegister) navRegister.style.display = 'block';
+                            if (navUser) navUser.style.display = 'none';
+                            if (navLogout) navLogout.style.display = 'none';
+                        }
+                    })
+                    .catch(() => {
+                        // Error checking session, show logged out state
+                        if (navLogin) navLogin.style.display = 'block';
+                        if (navRegister) navRegister.style.display = 'block';
+                        if (navUser) navUser.style.display = 'none';
+                        if (navLogout) navLogout.style.display = 'none';
+                    });
+            }
+        }
+
+        function refreshSelectedChartContext() {
+            if (activeChartType === 'tradingview') loadTradingViewChart();
+            else loadCandlestickChart(currentTimeframe);
+            updateDashboard();
+            loadCycleStats();
+            updateOpenOrders();
+            updateExchangeTrades();
+        }
+
+        function switchChartType(type) {
+            activeChartType = type;
+            localStorage.setItem('preferredChartType', type);
+            document.querySelectorAll('.chart-type-btn').forEach(btn => btn.classList.remove('active'));
+            const tfSelector = document.getElementById('timeframe-selector-group');
+
+            if (type === 'tradingview') {
+                document.getElementById('btn-chart-tv').classList.add('active');
+                if (tfSelector) tfSelector.style.display = 'none';
+                loadTradingViewChart();
+            } else {
+                document.getElementById('btn-chart-plotly').classList.add('active');
+                if (tfSelector) tfSelector.style.display = 'flex';
+                // Restore candlestick container structure
+                document.getElementById('candlestick-chart').innerHTML = `
+                    <div class="text-center text-muted py-5">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Memuat data chart...</p>
+                    </div>
+                `;
+                loadCandlestickChart(currentTimeframe);
+            }
+        }
+
+        function loadTradingViewChart() {
+            document.getElementById('candlestick-chart').innerHTML = '<div id="tradingview-widget" style="height: 100%; width: 100%;"></div>';
+
+            const selectedBot = selectedChartBot();
+            let tradingPair = selectedBot ? selectedBot.pair.toUpperCase() : 'BTCIDR';
+
+            fetch('/api/status?' + chartBotQuery())
+                .then(r => r.json())
+                .then(statusData => {
+                    new TradingView.widget({
+                        "width": "100%",
+                        "height": "100%",
+                        "symbol": "BINANCE:" + tradingPair,
+                        "interval": "60",
+                        "timezone": "Asia/Jakarta",
+                        "theme": "dark",
+                        "style": "1",
+                        "locale": "id",
+                        "toolbar_bg": "#f1f3f6",
+                        "enable_publishing": false,
+                        "hide_side_toolbar": false,
+                        "allow_symbol_change": true,
+                        "container_id": "tradingview-widget",
+                        "studies": [
+                            "RSI@tv-basicstudies",
+                            "MASimple@tv-basicstudies"
+                        ]
+                    });
+                })
+                .catch(() => {
+                    new TradingView.widget({
+                        "width": "100%",
+                        "height": "100%",
+                        "symbol": "BINANCE:BTCIDR",
+                        "interval": "60",
+                        "timezone": "Asia/Jakarta",
+                        "theme": "dark",
+                        "style": "1",
+                        "locale": "id",
+                        "toolbar_bg": "#f1f3f6",
+                        "enable_publishing": false,
+                        "hide_side_toolbar": false,
+                        "allow_symbol_change": true,
+                        "container_id": "tradingview-widget"
+                    });
+                });
+        }
+
+        // Load candlestick chart with Safety Order lines and trade markers
+        function loadCandlestickChart(timeframe = '1h') {
+            if (activeChartType === 'tradingview') {
+                return;
+            }
+            currentTimeframe = timeframe;
+            const requestedBotId = selectedChartBotId;
+            const requestedPair = selectedChartBot()?.pair?.toLowerCase() || '';
+
+            // Fetch candlestick data and status data in parallel
+            const query = chartBotQuery();
+            Promise.all([
+                fetch(`/api/candlestick?timeframe=${timeframe}&limit=100&${query}`).then(r => r.json()),
+                fetch('/api/status?' + query).then(r => r.json())
+            ]).then(([chartData, statusData]) => {
+                // Ignore a delayed response from the previously selected pair.
+                if (requestedBotId !== selectedChartBotId) return;
+                if (chartData.success && chartData.data.length > 0) {
+                    // A chart, status, and markers must originate from the
+                    // exact same bot.  This also protects the UI from a
+                    // delayed response after changing pair/mode.
+                    if (chartData.bot_id !== requestedBotId ||
+                        (requestedPair && String(chartData.pair || '').toLowerCase() !== requestedPair)) return;
+                    const status = statusData.success ? statusData.data : null;
+                    if (status?.selected_bot_id && status.selected_bot_id !== requestedBotId) return;
+
+                    // Try to fetch trade markers separately (non-blocking)
+                    fetch('/api/trade-markers?' + query)
+                        .then(r => r.json())
+                        .then(markersData => {
+                            if (requestedBotId !== selectedChartBotId) return;
+                            if (markersData.bot_id && markersData.bot_id !== requestedBotId) return;
+                            if (requestedPair && markersData.pair &&
+                                String(markersData.pair).toLowerCase() !== requestedPair) return;
+                            const markers = markersData.success ? markersData.data : [];
+                            renderCandlestickChart(chartData.data, status, markers);
+                        })
+                        .catch(() => {
+                            if (requestedBotId !== selectedChartBotId) return;
+                            renderCandlestickChart(chartData.data, status, []);
+                        });
+                } else {
+                    document.getElementById('candlestick-chart').innerHTML =
+                        '<div class="text-center text-muted py-5"><i class="bi bi-exclamation-triangle" style="font-size: 2rem;"></i><p class="mt-2">Gagal memuat data chart</p></div>';
+                }
+            }).catch(error => {
+                console.error('Error loading candlestick data:', error);
+                document.getElementById('candlestick-chart').innerHTML =
+                    '<div class="text-center text-muted py-5"><i class="bi bi-exclamation-triangle" style="font-size: 2rem;"></i><p class="mt-2">Error memuat data chart</p></div>';
+            });
+        }
+
+        // ── RSI calculation helper ──────────────────────────────────────────────
+        function calcRSI(closes, period = 14) {
+            const rsi = new Array(closes.length).fill(null);
+            if (closes.length < period + 1) return rsi;
+
+            let avgGain = 0, avgLoss = 0;
+            for (let i = 1; i <= period; i++) {
+                const change = closes[i] - closes[i - 1];
+                if (change >= 0) avgGain += change;
+                else avgLoss += Math.abs(change);
+            }
+            avgGain /= period;
+            avgLoss /= period;
+
+            for (let i = period; i < closes.length; i++) {
+                if (i === period) {
+                    const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+                    rsi[i] = 100 - 100 / (1 + rs);
+                    continue;
+                }
+                const change = closes[i] - closes[i - 1];
+                const gain = change > 0 ? change : 0;
+                const loss = change < 0 ? Math.abs(change) : 0;
+                avgGain = (avgGain * (period - 1) + gain) / period;
+                avgLoss = (avgLoss * (period - 1) + loss) / period;
+                const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+                rsi[i] = 100 - 100 / (1 + rs);
+            }
+            return rsi;
+        }
+
+        function renderCandlestickChart(candles, status, markers = []) {
+            const formatCompactAxisPrice = (value) => {
+                const abs = Math.abs(value);
+                const format = (number, suffix) => `${number.toFixed(3).replace(/\.?(0+)$/, '').replace('.', ',')}${suffix}`;
+                if (abs >= 1e9) return format(value / 1e9, 'B');
+                if (abs >= 1e6) return format(value / 1e6, 'M');
+                if (abs >= 1e3) return format(value / 1e3, 'K');
+                return Math.round(value).toLocaleString('id-ID');
+            };
+            // Prepare data for Plotly
+            const timestamps = candles.map(c => new Date(c.timestamp * 1000));
+            const open = candles.map(c => c.open);
+            const high = candles.map(c => c.high);
+            const low = candles.map(c => c.low);
+            const close = candles.map(c => c.close);
+            const volume = candles.map(c => c.volume);
+
+            const currentPrice = status ? status.current_price : 0;
+            const lastClose = close[close.length - 1] || 0;
+            const previousClose = close[close.length - 2] || lastClose;
+            const priceChange = previousClose ? ((lastClose - previousClose) / previousClose) * 100 : 0;
+            const chartPriceElement = document.getElementById('chart-last-price');
+            const chartChangeElement = document.getElementById('chart-change');
+            const chartPairElement = document.getElementById('chart-pair');
+            const selectedBot = selectedChartBot();
+            if (chartPairElement) {
+                chartPairElement.textContent = selectedBot
+                    ? `${selectedBot.pair.toUpperCase()} · ${selectedBot.dry_run ? 'DRY RUN' : 'REAL TRADE'}`
+                    : 'MARKET';
+            }
+            if (chartPriceElement) chartPriceElement.textContent = `Rp ${formatRupiah(currentPrice || lastClose)}`;
+            if (chartChangeElement) {
+                chartChangeElement.textContent = `${priceChange >= 0 ? '+' : ''}${priceChange.toFixed(2)}%`;
+                chartChangeElement.className = `chart-change ${priceChange >= 0 ? 'positive' : 'negative'}`;
+            }
+
+            // ── RSI (14) ──────────────────────────────────────────────────────────
+            const rsiValues = calcRSI(close, 14);
+            const rsiColors = rsiValues.map(v => {
+                if (v === null) return null;
+                if (v >= 70) return '#ef5350';   // overbought – red
+                if (v <= 30) return '#26a69a';   // oversold  – green
+                return '#7b68ee';                 // neutral   – purple
+            });
+
+            // Calculate 9-period SMA for a TradingView-like look
+            const sma9 = [];
+            const period = 9;
+            for (let i = 0; i < close.length; i++) {
+                if (i < period - 1) {
+                    sma9.push(null);
+                } else {
+                    let sum = 0;
+                    for (let j = 0; j < period; j++) {
+                        sum += close[i - j];
+                    }
+                    sma9.push(sum / period);
+                }
+            }
+
+            // Bollinger Bands: SMA 20 with ±2 standard deviations.
+            const bbPeriod = 20;
+            const bbUpper = [], bbMiddle = [], bbLower = [];
+            for (let i = 0; i < close.length; i++) {
+                if (i < bbPeriod - 1) {
+                    bbUpper.push(null); bbMiddle.push(null); bbLower.push(null);
+                    continue;
+                }
+                const window = close.slice(i - bbPeriod + 1, i + 1);
+                const mean = window.reduce((sum, value) => sum + value, 0) / bbPeriod;
+                const variance = window.reduce((sum, value) => sum + ((value - mean) ** 2), 0) / bbPeriod;
+                const deviation = Math.sqrt(variance);
+                bbMiddle.push(mean);
+                bbUpper.push(mean + (2 * deviation));
+                bbLower.push(mean - (2 * deviation));
+            }
+
+            const bbUpperTrace = {
+                x: timestamps, y: bbUpper, type: 'scatter', mode: 'lines',
+                line: { color: 'rgba(123, 104, 238, 0.72)', width: 1 },
+                name: 'BB Upper', xaxis: 'x', yaxis: 'y', hoverinfo: 'skip'
+            };
+            const bbLowerTrace = {
+                x: timestamps, y: bbLower, type: 'scatter', mode: 'lines',
+                line: { color: 'rgba(123, 104, 238, 0.72)', width: 1 },
+                fill: 'tonexty', fillcolor: 'rgba(123, 104, 238, 0.09)',
+                name: 'BB Lower', xaxis: 'x', yaxis: 'y', hoverinfo: 'skip'
+            };
+            const bbMiddleTrace = {
+                x: timestamps, y: bbMiddle, type: 'scatter', mode: 'lines',
+                line: { color: 'rgba(123, 104, 238, 0.95)', width: 1, dash: 'dot' },
+                name: 'BB 20', xaxis: 'x', yaxis: 'y', hoverinfo: 'skip'
+            };
+
+            // SMA 9 Trace
+            const smaTrace = {
+                x: timestamps,
+                y: sma9,
+                type: 'scatter',
+                mode: 'lines',
+                line: { color: '#f0a500', width: 1.5 },
+                name: 'MA 9',
+                xaxis: 'x',
+                yaxis: 'y',
+                hoverinfo: 'skip'
+            };
+
+            // Candlestick trace with professional TradingView colors
+            const candlestickTrace = {
+                x: timestamps,
+                close: close,
+                decreasing: {
+                    fillcolor: '#ef5350',
+                    line: { color: '#ef5350', width: 1 }
+                },
+                high: high,
+                increasing: {
+                    fillcolor: '#26a69a',
+                    line: { color: '#26a69a', width: 1 }
+                },
+                low: low,
+                open: open,
+                type: 'candlestick',
+                name: 'Harga',
+                xaxis: 'x',
+                yaxis: 'y'
+            };
+
+            // Volume bars with matching candlestick colors
+            const colors = close.map((c, i) => {
+                return c >= open[i] ? '#26a69a' : '#ef5350';
+            });
+
+            const volumeTrace = {
+                x: timestamps,
+                y: volume,
+                type: 'bar',
+                name: 'Volume',
+                marker: { color: colors, opacity: 0.2 },
+                xaxis: 'x',
+                yaxis: 'y2'
+            };
+
+            // ── RSI trace (yaxis3) ────────────────────────────────────────────────
+            const rsiTrace = {
+                x: timestamps,
+                y: rsiValues,
+                type: 'scatter',
+                mode: 'lines',
+                line: { color: '#7b68ee', width: 1.8 },
+                name: 'RSI(14)',
+                xaxis: 'x',
+                yaxis: 'y3',
+                hovertemplate: 'RSI: %{y:.1f}<extra></extra>'
+            };
+
+            // RSI overbought/oversold reference lines
+            const rsiOverboughtTrace = {
+                x: [timestamps[0], timestamps[timestamps.length - 1]],
+                y: [70, 70],
+                type: 'scatter',
+                mode: 'lines',
+                line: { color: '#ef5350', width: 1, dash: 'dot' },
+                name: 'OB 70',
+                xaxis: 'x',
+                yaxis: 'y3',
+                showlegend: false,
+                hoverinfo: 'skip'
+            };
+
+            const rsiOversoldTrace = {
+                x: [timestamps[0], timestamps[timestamps.length - 1]],
+                y: [30, 30],
+                type: 'scatter',
+                mode: 'lines',
+                line: { color: '#26a69a', width: 1, dash: 'dot' },
+                name: 'OS 30',
+                xaxis: 'x',
+                yaxis: 'y3',
+                showlegend: false,
+                hoverinfo: 'skip'
+            };
+
+            const rsiMidTrace = {
+                x: [timestamps[0], timestamps[timestamps.length - 1]],
+                y: [50, 50],
+                type: 'scatter',
+                mode: 'lines',
+                line: { color: '#848e9c', width: 0.8, dash: 'dot' },
+                name: 'Mid 50',
+                xaxis: 'x',
+                yaxis: 'y3',
+                showlegend: false,
+                hoverinfo: 'skip'
+            };
+
+            // Calculate Safety Order and Take Profit levels dynamically
+            const gridTraces = [];
+            if (currentPrice > 0 && status) {
+                // If there's an active position, show actual active levels
+                if (status.active_position) {
+                    // 1. Base Entry Line (Blue)
+                    if (status.base_price > 0) {
+                        gridTraces.push({
+                            x: timestamps,
+                            y: Array(timestamps.length).fill(status.base_price),
+                            type: 'scatter',
+                            mode: 'lines',
+                            line: { color: '#2962ff', width: 1.5, dash: 'dash' },
+                            name: `Entry: Rp ${formatRupiah(status.base_price)}`,
+                            xaxis: 'x',
+                            yaxis: 'y'
+                        });
+                    }
+
+                    // 2. Take Profit Line (Neon/Stabilo Green)
+                    if (status.tp_price > 0) {
+                        gridTraces.push({
+                            x: timestamps,
+                            y: Array(timestamps.length).fill(status.tp_price),
+                            type: 'scatter',
+                            mode: 'lines',
+                            line: { color: '#39FF14', width: 2, dash: 'dot' },
+                            name: `TP: Rp ${formatRupiah(status.tp_price)}`,
+                            xaxis: 'x',
+                            yaxis: 'y'
+                        });
+                    }
+
+                    // 3. Active Stop Loss Line
+                    if (status.sl_price > 0) {
+                        gridTraces.push({
+                            x: timestamps,
+                            y: Array(timestamps.length).fill(status.sl_price),
+                            type: 'scatter',
+                            mode: 'lines',
+                            line: { color: '#ff3b69', width: 1.6, dash: 'dot' },
+                            name: `SL: Rp ${formatRupiah(status.sl_price)}`,
+                            xaxis: 'x',
+                            yaxis: 'y'
+                        });
+                    }
+
+                    // 4. Filled SOs stay visible as price-level lines, but
+                    // their SO label is hidden because the level was already
+                    // reached by market.
+                    if (status.so_entries && status.so_entries.length > 0) {
+                        status.so_entries.forEach(so => {
+                            gridTraces.push({
+                                x: timestamps,
+                                y: Array(timestamps.length).fill(so.price),
+                                type: 'scatter',
+                                mode: 'lines',
+                                line: { color: '#f57c00', width: 1.5, dash: 'solid' },
+                                name: `SO ${so.number || so.step || 0} (FILLED): Rp ${formatRupiah(so.price)}`,
+                                showSafetyLabel: true,
+                                xaxis: 'x',
+                                yaxis: 'y'
+                            });
+                        });
+                    }
+
+                    // 4. Pending SO lines also remain visible after market
+                    // touches their price; only the SO text is hidden.
+                    if (status.open_orders && status.open_orders.length > 0) {
+                        status.open_orders.forEach(so => {
+                            const soPrice = Number(so.price) || 0;
+                            if (soPrice <= 0) return;
+                            gridTraces.push({
+                                x: timestamps,
+                                y: Array(timestamps.length).fill(soPrice),
+                                type: 'scatter',
+                                mode: 'lines',
+                                line: { color: '#ffa726', width: 1.2, dash: 'dash' },
+                                name: `SO ${so.so_number} (PENDING): Rp ${formatRupiah(soPrice)}`,
+                                showSafetyLabel: true,
+                                xaxis: 'x',
+                                yaxis: 'y'
+                            });
+                        });
+                    }
+                } else {
+                    // No active position: render theoretical grid starting from current price
+                    const soDistance = parseFloat(status.so_distance) || 2;
+                    const maxSO = parseInt(status.max_so) || 5;
+                    const takeProfitPercent = parseFloat(status.take_profit) || 5;
+                    const stopLossPercent = parseFloat(status.stop_loss) || 0;
+
+                    // Theoretical Safety Orders
+                    const stepScale = parseFloat(status.step_scale) || 1;
+                    const stepScaleEnabled = !!status.step_scale_enabled;
+                    for (let i = 1; i <= maxSO; i++) {
+                        const distance = getDcaSoDistance(i, soDistance, stepScale, stepScaleEnabled);
+                        const soPrice = currentPrice * (1 - distance / 100);
+                        gridTraces.push({
+                            x: timestamps,
+                            y: Array(timestamps.length).fill(soPrice),
+                            type: 'scatter',
+                            mode: 'lines',
+                            line: { color: '#f57c00', width: 1.2, dash: 'dash' },
+                            name: `SO ${i} (GRID): Rp ${formatRupiah(soPrice)}`,
+                            xaxis: 'x',
+                            yaxis: 'y'
+                        });
+                    }
+
+                    // Theoretical Take Profit (Neon/Stabilo Green)
+                    const tpPrice = currentPrice * (1 + takeProfitPercent / 100);
+                    gridTraces.push({
+                        x: timestamps,
+                        y: Array(timestamps.length).fill(tpPrice),
+                        type: 'scatter',
+                        mode: 'lines',
+                        line: { color: '#39FF14', width: 1.5, dash: 'dot' },
+                        name: `TP (GRID): Rp ${formatRupiah(tpPrice)}`,
+                        xaxis: 'x',
+                        yaxis: 'y'
+                    });
+
+                    if (stopLossPercent > 0) {
+                        const slPrice = currentPrice * (1 - stopLossPercent / 100);
+                        gridTraces.push({
+                            x: timestamps,
+                            y: Array(timestamps.length).fill(slPrice),
+                            type: 'scatter',
+                            mode: 'lines',
+                            line: { color: '#ff3b69', width: 1.4, dash: 'dot' },
+                            name: `SL (GRID): Rp ${formatRupiah(slPrice)}`,
+                            xaxis: 'x',
+                            yaxis: 'y'
+                        });
+                    }
+                }
+
+                // 5. Current Market Price Line (Grey Line)
+                gridTraces.push({
+                    x: timestamps,
+                    y: Array(timestamps.length).fill(currentPrice),
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: { color: '#888888', width: 1, dash: 'solid' },
+                    name: `Market: Rp ${formatRupiah(currentPrice)}`,
+                    xaxis: 'x',
+                    yaxis: 'y'
+                });
+            }
+
+            // ── Next Base Order marker (after TP) ────────────────────────────────
+            // Show a horizontal dashed line at current price as the theoretical next
+            // base order entry, only when there IS an active position (so TP is real)
+            if (status && status.active_position && status.tp_price > 0) {
+                // Next cycle entry ≈ current market price (bot will re-enter after TP hits)
+                const nextBasePrice = currentPrice > 0 ? currentPrice : status.tp_price;
+                gridTraces.push({
+                    x: timestamps,
+                    y: Array(timestamps.length).fill(nextBasePrice),
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: { color: '#a29bfe', width: 1.2, dash: 'dashdot' },
+                    name: `Next Base ≈ Rp ${formatRupiah(nextBasePrice)}`,
+                    xaxis: 'x',
+                    yaxis: 'y'
+                });
+            }
+
+            // Keep price-level indicators out of the candle area. Render a
+            // short guide and label in the future padding to the right of the
+            // latest candle instead of drawing a line across the whole chart.
+            const latestCandleTime = timestamps[timestamps.length - 1];
+            const candleIntervalMs = timestamps.length > 1
+                ? timestamps[timestamps.length - 1].getTime() - timestamps[timestamps.length - 2].getTime()
+                : 60 * 60 * 1000;
+            const isMobileChart = window.matchMedia('(max-width: 767px)').matches;
+            // Mobile shows fewer candles and fewer future bars, retaining the
+            // newest candle around 60% while making each candle materially wider.
+            const visibleHistoryBars = isMobileChart ? 14 : 30;
+            const futurePaddingBars = isMobileChart ? 9 : 20;
+            const rightLevelEnd = new Date(
+                latestCandleTime.getTime() + candleIntervalMs * futurePaddingBars);
+            gridTraces.forEach(trace => {
+                const levelPrice = trace.y[0];
+                trace.x = [latestCandleTime, rightLevelEnd];
+                trace.y = [levelPrice, levelPrice];
+            });
+
+            // DCA lines are useful on the chart but make the legend noisy.
+            // Label the key levels in the empty right-side guide area.
+            gridTraces.forEach(trace => { trace.showlegend = false; trace.hovertemplate = `${trace.name}<extra></extra>`; });
+            const importantLevels = gridTraces.filter(trace =>
+                /^(Entry|TP|SL|Market|SO\s+\d+)/.test(trace.name) && trace.showSafetyLabel !== false);
+            const levelAnnotations = importantLevels.map((trace, index) => {
+                const soMatch = trace.name.match(/^SO\s+(\d+)/);
+                const rawLabel = trace.name.split(':')[0];
+                const label = soMatch ? `SO${soMatch[1]}` :
+                    (rawLabel === 'Entry' ? 'BO' :
+                        (rawLabel.startsWith('TP') ? 'TP' :
+                            (rawLabel.startsWith('SL') ? 'SL' : 'Market')));
+                // Keep legacy equal-price levels readable until the worker
+                // refreshes them using the cumulative DCA formula.
+                const matchingLevelCount = importantLevels.slice(0, index)
+                    .filter(previous => Math.abs(previous.y[0] - trace.y[0]) < 0.000001).length;
+                return {
+                // xref=paper locks every label to the chart's right boundary.
+                // Zooming/panning changes the candles, not the label position.
+                x: 1, y: trace.y[0], xref: 'paper', yref: 'y',
+                text: `${label} · ${formatCompactAxisPrice(trace.y[0])}`, showarrow: false,
+                xanchor: 'right', xshift: -5,
+                yshift: (index === 0 ? 10 : 0) + (matchingLevelCount * 14),
+                font: { size: 10, color: trace.line.color },
+                bgcolor: '#131722', bordercolor: trace.line.color, borderwidth: 1, borderpad: 3
+                };
+            });
+
+            // Default zoom-in configuration: 30 candles plus enough future
+            // space to keep the newest candle slightly right of center.
+            let xaxisConfig = {
+                rangeslider: { visible: false },
+                type: 'date',
+                fixedrange: false,
+                gridcolor: '#1e222d',
+                linecolor: '#2a2e39',
+                tickcolor: '#2a2e39',
+                tickfont: { color: '#848e9c' },
+                // TradingView-style crosshair spike lines
+                showspikes: true,
+                spikemode: 'across',
+                spikesnap: 'cursor',
+                spikedash: 'dash',
+                spikethickness: 1,
+                spikecolor: '#848e9c'
+            };
+
+            if (timestamps.length > 5) {
+                const zoomStart = timestamps[
+                    Math.max(0, timestamps.length - visibleHistoryBars)];
+                const tickDiff = timestamps.length > 1 ? timestamps[timestamps.length - 1].getTime() - timestamps[timestamps.length - 2].getTime() : 60000;
+                const zoomEnd = new Date(
+                    timestamps[timestamps.length - 1].getTime() +
+                    tickDiff * futurePaddingBars);
+                xaxisConfig.range = [zoomStart, zoomEnd];
+                xaxisConfig.autorange = false;
+            } else {
+                xaxisConfig.autorange = true;
+            }
+
+            // Compute visible range for y-axis to prevent squished (gepeng) candles while keeping active levels visible
+            let yaxisConfig = {
+                domain: [0.30, 1],
+                title: { text: 'Harga (IDR)', font: { color: '#848e9c', size: 11 } },
+                tickprefix: '',
+                side: 'right',
+                automargin: true,
+                gridcolor: '#1e222d',
+                linecolor: '#2a2e39',
+                tickcolor: '#2a2e39',
+                tickfont: { color: '#848e9c' },
+                // TradingView-style crosshair spike lines
+                showspikes: true,
+                spikemode: 'across',
+                spikesnap: 'cursor',
+                spikedash: 'dash',
+                spikethickness: 1,
+                spikecolor: '#848e9c'
+            };
+
+            if (timestamps.length > 0) {
+                const startIdx = Math.max(
+                    0, timestamps.length - visibleHistoryBars);
+                const visibleLows = low.slice(startIdx);
+                const visibleHighs = high.slice(startIdx);
+
+                let visibleMin = Math.min(...visibleLows);
+                let visibleMax = Math.max(...visibleHighs);
+
+                // Show Entry/TP/SO1 levels in the visible vertical range
+                if (status) {
+                    const soDistance = parseFloat(status.so_distance) || 2;
+                    const maxSafetyOrders = parseInt(status.max_so) || 5;
+                    const takeProfitPercent = parseFloat(status.take_profit) || 5;
+
+                    const activeBase = status.active_position ? status.base_price : currentPrice;
+                    const activeTp = status.active_position ? status.tp_price : currentPrice * (1 + takeProfitPercent / 100);
+                    const stopLossPercent = parseFloat(status.stop_loss) || 0;
+                    const activeSl = status.active_position
+                        ? status.sl_price
+                        : (stopLossPercent > 0 ? currentPrice * (1 - stopLossPercent / 100) : 0);
+                    const filledCount = status.active_position ? (status.so_entries || []).length : 0;
+
+                    if (activeBase > 0) {
+                        visibleMin = Math.min(visibleMin, activeBase);
+                        visibleMax = Math.max(visibleMax, activeBase);
+                    }
+                    if (activeTp > 0) {
+                        visibleMin = Math.min(visibleMin, activeTp);
+                        visibleMax = Math.max(visibleMax, activeTp);
+                    }
+                    if (activeSl > 0) {
+                        visibleMin = Math.min(visibleMin, activeSl);
+                        visibleMax = Math.max(visibleMax, activeSl);
+                    }
+
+                    // Include executed safety orders
+                    if (status.active_position && status.so_entries) {
+                        status.so_entries.forEach(so => {
+                            if (so.price > 0) {
+                                visibleMin = Math.min(visibleMin, so.price);
+                                visibleMax = Math.max(visibleMax, so.price);
+                            }
+                        });
+                    }
+
+                    // Include next pending/theoretical safety order
+                    if (filledCount < maxSafetyOrders && activeBase > 0) {
+                    const nextSoIndex = filledCount + 1;
+                    const nextSoDistance = getDcaSoDistance(
+                        nextSoIndex,
+                        soDistance,
+                        parseFloat(status.step_scale) || 1,
+                        !!status.step_scale_enabled
+                    );
+                    const nextSoPrice = activeBase * (1 - nextSoDistance / 100);
+                        visibleMin = Math.min(visibleMin, nextSoPrice);
+                        visibleMax = Math.max(visibleMax, nextSoPrice);
+                    }
+                }
+
+                // Add comfortable vertical padding above and below visible high/low
+                const diff = visibleMax - visibleMin;
+                const pad = diff > 0 ? diff * 0.15 : visibleMin * 0.005;
+
+                yaxisConfig.range = [visibleMin - pad, visibleMax + pad];
+                yaxisConfig.autorange = false;
+            } else {
+                yaxisConfig.autorange = true;
+            }
+
+            // Use compact Indonesian labels on the right-hand price scale,
+            // e.g. 1,195B rather than a long 1.195.000.000 IDR value.
+            if (Array.isArray(yaxisConfig.range)) {
+                const [axisMin, axisMax] = yaxisConfig.range;
+                const tickCount = 5;
+                const tickStep = (axisMax - axisMin) / (tickCount - 1);
+                yaxisConfig.tickmode = 'array';
+                yaxisConfig.tickvals = Array.from({ length: tickCount }, (_, index) => axisMin + (tickStep * index));
+                yaxisConfig.ticktext = yaxisConfig.tickvals.map(formatCompactAxisPrice);
+            }
+
+            // High-end trading chart layout matching TradingView layout
+            const layout = {
+                dragmode: 'pan',
+                showlegend: true,
+                legend: {
+                    orientation: 'h',
+                    y: 1.03, x: 0,
+                    bgcolor: 'rgba(19, 23, 34, .65)',
+                    font: { color: '#aeb8c7', size: 10 }
+                },
+                xaxis: xaxisConfig,
+                yaxis: yaxisConfig,
+                yaxis2: {
+                    domain: [0.20, 0.28],
+                    showgrid: false,
+                    showticklabels: false,
+                    zeroline: false,
+                    linecolor: '#2a2e39',
+                    tickcolor: '#2a2e39'
+                },
+                yaxis3: {
+                    domain: [0, 0.18],
+                    range: [0, 100],
+                    title: { text: 'RSI', font: { color: '#848e9c', size: 10 } },
+                    gridcolor: '#1e222d',
+                    linecolor: '#2a2e39',
+                    tickcolor: '#2a2e39',
+                    tickfont: { color: '#848e9c', size: 9 },
+                    tickvals: [30, 50, 70],
+                    zeroline: false,
+                    showspikes: true,
+                    spikemode: 'across',
+                    spikesnap: 'cursor',
+                    spikedash: 'dash',
+                    spikethickness: 1,
+                    spikecolor: '#848e9c'
+                },
+                plot_bgcolor: '#131722',
+                paper_bgcolor: '#131722',
+                font: { color: '#d1d4dc', family: 'Inter, system-ui, sans-serif' },
+                // Reserve space for IDR labels on the right price scale.
+                // A small right margin caused the last digits to be clipped.
+                margin: isMobileChart
+                    ? { t: 10, b: 30, l: 4, r: 58 }
+                    : { t: 15, b: 35, l: 65, r: 105 },
+                hovermode: 'x unified',
+                hoverlabel: {
+                    bgcolor: '#1e222d',
+                    bordercolor: '#2a2e39',
+                    font: { color: '#d1d4dc' }
+                },
+                annotations: levelAnnotations
+            };
+
+            const config = {
+                responsive: true,
+                displayModeBar: true,
+                modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+                displaylogo: false
+            };
+
+            // Combine all traces including the new SMA 9 Moving Average and RSI panel
+            const allTraces = [
+                bbUpperTrace, bbLowerTrace, bbMiddleTrace, candlestickTrace, smaTrace,
+                volumeTrace,
+                rsiTrace, rsiOverboughtTrace, rsiOversoldTrace, rsiMidTrace,
+                ...gridTraces
+            ];
+
+            // Trade markers (Buy/Sell markers on chart)
+            if (markers.length > 0) {
+                const markerTimes = [];
+                const markerPrices = [];
+                const markerTexts = [];
+                const markerBorderColors = [];
+                const markerFillColors = [];
+                const markerSizes = [];
+
+                markers.forEach(m => {
+                    markerTimes.push(new Date(m.timestamp * 1000));
+                    markerPrices.push(m.price);
+
+                    let text = 'B';
+                    let color = '#26a69a'; // default green
+                    let size = 16;
+
+                    if (m.type === 'take_profit' || m.type === 'stop_loss' || m.type === 'sell') {
+                        text = m.type === 'take_profit' ? 'TP' :
+                            (m.type === 'stop_loss' ? 'SL' : 'S');
+                        color = '#ef5350'; // rose red
+                        size = text.length > 1 ? 24 : 16;
+                    } else if (m.type.startsWith('so_')) {
+                        text = m.type.toUpperCase().replace('_', ''); // E.g., 'so_1' -> 'SO1'
+                        color = '#26a69a'; // green
+                        size = 24; // larger size for "SO1", "SO2" etc.
+                    } else if (m.type === 'base') {
+                        text = 'BO';
+                        color = '#26a69a';
+                        size = 24;
+                    } else if (m.type === 'buy') {
+                        text = 'B';
+                        color = '#26a69a';
+                        size = 16;
+                    }
+
+                    markerTexts.push(text);
+                    markerBorderColors.push(color);
+                    markerFillColors.push(m.historical ? '#050505' : color);
+                    markerSizes.push(size);
+                });
+
+                if (markerTimes.length > 0) {
+                    const markerFontSizes = markerTexts.map(t => t.length > 1 ? 8 : 10);
+                    const markersTrace = {
+                        x: markerTimes,
+                        y: markerPrices,
+                        text: markerTexts,
+                        mode: 'markers+text',
+                        type: 'scatter',
+                        textfont: {
+                            color: '#ffffff',
+                            size: markerFontSizes,
+                            family: 'Arial Black, sans-serif'
+                        },
+                        marker: {
+                            size: markerSizes,
+                            // Closed-cycle history uses a black fill. Markers
+                            // from the currently active position keep their
+                            // transaction color.
+                            color: markerFillColors,
+                            line: { color: markerBorderColors, width: 2 },
+                            symbol: 'circle'
+                        },
+                        textposition: 'middle center',
+                        name: 'Eksekusi Trade',
+                        xaxis: 'x',
+                        yaxis: 'y',
+                        hoverinfo: 'text',
+                        hovertext: markers.map(m => {
+                            const date = new Date(m.timestamp * 1000).toLocaleString('id-ID');
+                            let actionName = 'BUY';
+                            if (m.type === 'take_profit') actionName = 'TAKE PROFIT (SELL)';
+                            else if (m.type === 'stop_loss') actionName = 'STOP LOSS (SELL)';
+                            else if (m.type === 'sell') actionName = 'SELL';
+                            else if (m.type.startsWith('so_')) actionName = 'SAFETY ORDER ' + m.type.split('_')[1];
+                            else if (m.type === 'base') actionName = 'BASE ORDER (BUY)';
+
+                            return `${actionName}<br>Harga: Rp ${formatRupiah(m.price)}<br>${date}<br>Jumlah: Rp ${formatRupiah(m.amount_idr)}`;
+                        })
+                    };
+                    allTraces.push(markersTrace);
+                }
+            }
+            const chartDiv = document.getElementById('candlestick-chart');
+            if (chartDiv && !chartDiv.classList.contains('js-plotly-plot')) {
+                chartDiv.innerHTML = '';
+            }
+            Plotly.newPlot('candlestick-chart', allTraces, layout, config);
+        }
+
+        // Timeframe button handlers
+        document.querySelectorAll('.timeframe-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                document.querySelectorAll('.timeframe-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                loadCandlestickChart(this.dataset.timeframe);
+            });
+        });
+
+        function executeTrade() {
+            if (confirm('Apakah Anda yakin ingin melakukan trade sekarang?')) {
+                fetch('/api/trade', { method: 'POST' })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`Server error: HTTP ${response.status}. Coba restart Flask server.`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success) {
+                            alert('✅ ' + data.message);
+                            location.reload();
+                        } else {
+                            alert('❌ Trade gagal:\n' + data.message);
+                        }
+                    })
+                    .catch(err => {
+                        alert('❌ Tidak bisa menghubungi server:\n' + err.message);
+                    });
+            }
+        }
+
+
+        function startBot() {
+            fetch('/api/start', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    alert(data.message);
+                    location.reload();
+                });
+        }
+
+        function stopBot() {
+            if (confirm('Apakah Anda yakin ingin menghentikan bot?')) {
+                fetch('/api/stop', { method: 'POST' })
+                    .then(response => response.json())
+                    .then(data => {
+                        alert(data.message);
+                        location.reload();
+                    });
+            }
+        }
+
+        function strategySetting(label, value) {
+            const item = document.createElement('span');
+            item.className = 'strategy-setting';
+            const labelNode = document.createElement('span');
+            labelNode.textContent = label + ':';
+            const valueNode = document.createElement('strong');
+            valueNode.textContent = value;
+            item.append(labelNode, valueNode);
+            return item;
+        }
+
+        async function toggleStrategyBot(botId, isRunning, button) {
+            const action = isRunning ? 'stop' : 'start';
+            if (isRunning && !confirm('Hentikan bot ini?')) return;
+            button.disabled = true;
+            const previous = button.innerHTML;
+            button.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Proses';
+            try {
+                const response = await fetch(`/api/bots/${encodeURIComponent(botId)}/${action}`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || result.message || 'Gagal mengubah status bot');
+                }
+                await loadStrategyBots();
+                updateDashboard();
+            } catch (error) {
+                alert('Gagal mengubah status bot: ' + error.message);
+                button.disabled = false;
+                button.innerHTML = previous;
+            }
+        }
+
+        async function loadStrategyBots() {
+            const list = document.getElementById('strategy-bots-list');
+            const count = document.getElementById('strategy-bot-count');
+            if (!list || !count) return;
+
+            try {
+                const response = await fetch('/api/bots');
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || 'Gagal memuat bot');
+                }
+
+                const bots = Array.isArray(result.data) ? result.data : [];
+                count.textContent = `${bots.length} Bot`;
+                list.replaceChildren();
+
+                if (bots.length === 0) {
+                    const empty = document.createElement('div');
+                    empty.className = 'text-center text-muted py-4';
+                    empty.textContent = 'Belum ada bot. Tambahkan bot melalui halaman Settings.';
+                    list.appendChild(empty);
+                    return;
+                }
+
+                bots.forEach((bot, index) => {
+                    const strategy = bot.strategy || {};
+                    const running = String(bot.status || '').toUpperCase() === 'RUNNING';
+                    const item = document.createElement('div');
+                    item.className = 'strategy-bot-item';
+
+                    const top = document.createElement('div');
+                    top.className = 'd-flex flex-column flex-lg-row justify-content-between gap-3';
+
+                    const identity = document.createElement('div');
+                    identity.className = 'd-flex gap-3';
+                    const number = document.createElement('span');
+                    number.className = 'strategy-bot-number';
+                    number.textContent = index + 1;
+                    const details = document.createElement('div');
+                    details.className = 'flex-grow-1';
+                    const name = document.createElement('div');
+                    name.className = 'fw-bold mb-2';
+                    name.textContent = bot.name || `BOT ${index + 1}`;
+
+                    const primary = document.createElement('div');
+                    primary.className = 'd-flex flex-wrap gap-2 align-items-center mb-3';
+                    primary.append(
+                        strategySetting('Pair', String(bot.pair || '-').toUpperCase())
+                    );
+                    const status = document.createElement('span');
+                    status.className = `badge ${running ? 'bg-success' : 'bg-secondary'}`;
+                    status.textContent = `Status: ${running ? 'START' : 'STOP'}`;
+                    const mode = document.createElement('span');
+                    mode.className = `badge ${bot.dry_run ? 'bg-warning text-dark' : 'bg-danger'}`;
+                    mode.textContent = `Mode: ${bot.dry_run ? 'DRY RUN' : 'LIVE'}`;
+                    primary.append(status, mode);
+
+                    const settings = document.createElement('div');
+                    settings.className = 'd-flex flex-wrap gap-2';
+                    settings.append(
+                        strategySetting('Base', `Rp ${formatRupiah(Number(strategy.base_order_amount) || 0)}`),
+                        strategySetting('Safety Order', `Rp ${formatRupiah(Number(strategy.safety_order_amount) || 0)}`),
+                        strategySetting('Max SO', String(Number(strategy.max_safety_orders) || 0)),
+                        strategySetting('Jarak SO', `${Number(strategy.price_deviation || 0).toFixed(2)}%`),
+                        strategySetting('Take Profit', `${Number(strategy.take_profit_percent || 0).toFixed(2)}%`),
+                        strategySetting('Stop Loss', `${Number(strategy.stop_loss_percent || 0).toFixed(2)}%`),
+                        strategySetting('Entry Awal', strategy.initial_entry_mode === 'LIMIT' ? '🎯 Limit Buy' : strategy.initial_entry_mode === 'RSI' ? '📊 Tunggu RSI (Market)' : strategy.initial_entry_mode === 'RSI_LIMIT' ? '📊 Tunggu RSI (Limit)' : '⚡ Market Buy')
+                    );
+                    details.append(name, primary, settings);
+                    identity.append(number, details);
+
+                    const controls = document.createElement('div');
+                    controls.className = 'd-flex align-items-start gap-2';
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = `btn btn-sm ${running ? 'btn-warning' : 'btn-success'}`;
+                    button.innerHTML = running
+                        ? '<i class="bi bi-stop-fill me-1"></i>Stop Bot'
+                        : '<i class="bi bi-play-fill me-1"></i>Start Bot';
+                    button.addEventListener('click', () =>
+                        toggleStrategyBot(bot.id, running, button));
+                    controls.appendChild(button);
+
+                    const resetButton = document.createElement('button');
+                    resetButton.type = 'button';
+                    resetButton.className = 'btn btn-sm btn-outline-danger';
+                    resetButton.innerHTML = '<i class="bi bi-arrow-counterclockwise me-1"></i>Reset Siklus';
+                    resetButton.disabled = running;
+                    resetButton.title = running
+                        ? 'Hentikan bot terlebih dahulu sebelum mereset siklus'
+                        : 'Hapus/Bersihkan siklus DCA dan posisi yang gantung';
+                    resetButton.addEventListener('click', () => resetDcaCycle(bot.id, resetButton));
+                    controls.appendChild(resetButton);
+
+                    top.append(identity, controls);
+                    item.appendChild(top);
+                    list.appendChild(item);
+                });
+            } catch (error) {
+                list.replaceChildren();
+                const failed = document.createElement('div');
+                failed.className = 'text-center text-danger py-4';
+                failed.textContent = 'Tidak dapat memuat Strategy Bot: ' + error.message;
+                list.appendChild(failed);
+            }
+        }
+
+        async function resetDcaCycle(botId, btnElement) {
+            if (!confirm('Apakah Anda yakin ingin menghapus / mereset siklus DCA ini?\n\nSemua posisi aktif yang tersangkut dan order terbuka di exchange akan dibatalkan/dibersihkan.')) {
+                return;
+            }
+            if (btnElement) {
+                btnElement.disabled = true;
+                btnElement.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Resetting...';
+            }
+            try {
+                const response = await fetch(`/api/bots/${botId}/reset-position`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+                if (data.success) {
+                    alert(data.message || 'Siklus DCA berhasil dibersihkan.');
+                    if (typeof updateDashboard === 'function') updateDashboard();
+                    loadStrategyBots();
+                } else {
+                    alert('Gagal mereset siklus: ' + (data.error || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('Error: ' + err.message);
+            } finally {
+                if (btnElement) {
+                    btnElement.disabled = false;
+                    btnElement.innerHTML = '<i class="bi bi-arrow-counterclockwise me-1"></i>Reset Siklus';
+                }
+            }
+        }
+
+        // Auto refresh setiap 30 detik
+        setInterval(() => {
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Update status di sini jika perlu
+                        console.log('Status updated:', data.data);
+                    }
+                });
+        }, 30000);
+
+        // Auto refresh chart setiap 1 menit
+        setInterval(() => {
+            loadCandlestickChart(currentTimeframe);
+        }, 60000);
+
+        // Load chart on page load
+        document.addEventListener('DOMContentLoaded', function () {
+            const savedChartType = localStorage.getItem('preferredChartType') || 'plotly';
+            loadChartSelections().finally(() => {
+                switchChartType(savedChartType);
+                updateDashboard();
+                updateOpenOrders();
+            });
+            updateExchangeTrades();
+            loadStrategyBots();
+            loadCycleStats();
+            updateAuthUI();
+
+            // Audio Initialization
+            updateSoundUI();
+            document.addEventListener('click', function () {
+                initAudio();
+            }, { once: true });
+
+            // Listen for collapse event to rotate chevron
+            const collapseEl = document.getElementById('crypto-balances-collapse');
+            const chevron = document.getElementById('crypto-chevron');
+            if (collapseEl && chevron) {
+                collapseEl.addEventListener('show.bs.collapse', () => {
+                    chevron.style.transform = 'rotate(180deg)';
+                });
+                collapseEl.addEventListener('hide.bs.collapse', () => {
+                    chevron.style.transform = 'rotate(0deg)';
+                });
+            }
+        });
+
+        // Update exchange trade history from Indodax
+        function updateExchangeTrades() {
+            fetch('/api/exchange-trades?' + chartBotQuery())
+                .then(r => r.json())
+                .then(data => {
+                    const container = document.getElementById('exchange-trades-body');
+                    if (!container) return;
+
+                    if (data.success && data.data && data.data.length > 0) {
+                        const trades = data.data.slice(0, 20);
+                        let html = '<div class="table-responsive"><table class="table table-sm">';
+                        html += '<thead><tr><th>Type</th><th>Harga</th><th>Jumlah IDR</th><th>Status</th><th>Waktu</th></tr></thead><tbody>';
+
+                        trades.forEach(trade => {
+                            const typeLabel = trade.type === 'buy'
+                                ? '<span class="badge bg-success">BUY</span>'
+                                : '<span class="badge bg-danger">SELL</span>';
+                            const price = formatRupiah(trade.price);
+                            const amount = formatRupiah(trade.amount);
+                            const statusLabel = trade.status === 'filled'
+                                ? '<span class="badge bg-success">FILLED</span>'
+                                : trade.status === 'canceled'
+                                    ? '<span class="badge bg-secondary">CANCELED</span>'
+                                    : '<span class="badge bg-warning text-dark">' + (trade.status || 'PENDING') + '</span>';
+                            html += `<tr><td>${typeLabel}</td><td>Rp ${price}</td><td>Rp ${amount}</td><td>${statusLabel}</td><td>${trade.submit_time || trade.time}</td></tr>`;
+                        });
+
+                        html += '</tbody></table></div>';
+                        container.innerHTML = html;
+                    } else {
+                        const dryMessage = data.dry_run
+                            ? 'Dry run tidak memiliki riwayat transaksi di Indodax.'
+                            : 'Belum ada riwayat trade dari Indodax';
+                        container.innerHTML = '<div class="text-center text-muted py-4">' +
+                            '<i class="bi bi-inbox" style="font-size: 3rem;"></i>' +
+                            `<p class="mt-2">${dryMessage}</p>` +
+                            '</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading exchange trades:', error);
+                    document.getElementById('exchange-trades-body').innerHTML =
+                        '<div class="text-center text-muted py-4"><p>Tidak dapat memuat data exchange trades</p></div>';
+                });
+        }
+
+        // Update open orders section
+        function updateOpenOrders() {
+            fetch('/api/open-orders?' + chartBotQuery())
+                .then(async r => {
+                    const data = await r.json();
+                    if (!r.ok || !data.success) {
+                        throw new Error(data.error || `HTTP ${r.status}`);
+                    }
+                    return data;
+                })
+                .then(data => {
+                    const container = document.getElementById('open-orders-body');
+                    if (!container) return;
+
+                    if (data.success && data.data) {
+                        const currentOrders = data.data;
+                        const currentOrderIds = currentOrders.map(o => o.order_id || `${o.type}_${o.price}`);
+
+                        if (previousOpenOrderIds !== null) {
+                            const newOrders = currentOrderIds.filter(id => !previousOpenOrderIds.includes(id));
+                            if (newOrders.length > 0) {
+                                playOrderPlacedSound();
+                            }
+                        }
+                        previousOpenOrderIds = currentOrderIds;
+                    }
+
+                    if (data.success && data.data && data.data.length > 0) {
+                        let html = '<div class="table-responsive"><table class="table table-sm">';
+                        html += '<thead><tr><th>Type</th><th>Harga</th><th>Jumlah</th><th>Sisa</th><th>Waktu</th></tr></thead><tbody>';
+
+                        data.data.forEach(order => {
+                            const isBuy = String(order.type).toLowerCase() === 'buy';
+                            const badgeClass = isBuy ? 'bg-success' : 'bg-danger';
+                            const displayType = order.display_type || order.label || (isBuy ? 'BUY' : 'SELL');
+                            const typeLabel = `<span class="badge ${badgeClass}">${displayType}</span>`;
+                            const price = formatRupiah(Number(order.price) || 0);
+                            const amountCrypto = Number(order.amount) || 0;
+                            const remainingCrypto = Number(order.amount_remaining) || 0;
+                            const amount = isBuy
+                                ? `Rp ${formatRupiah(Number(order.amount_idr) || ((Number(order.price) || 0) * amountCrypto))}`
+                                : amountCrypto.toFixed(8);
+                            const remaining = isBuy
+                                ? `Rp ${formatRupiah(Number(order.amount_remaining_idr) || ((Number(order.price) || 0) * remainingCrypto))}`
+                                : remainingCrypto.toFixed(8);
+                            const time = order.time || '-';
+                            html += `<tr><td>${typeLabel}</td><td>Rp ${price}</td><td>${amount}</td><td>${remaining}</td><td>${time}</td></tr>`;
+                        });
+
+                        html += '</tbody></table></div>';
+                        container.innerHTML = html;
+                    } else {
+                        container.innerHTML = '<div class="text-center text-muted py-4">' +
+                            '<i class="bi bi-check-circle" style="font-size: 3rem; color: #28a745;"></i>' +
+                            '<p class="mt-2">Tidak ada open order aktif</p>' +
+                            '</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading open orders:', error);
+                    document.getElementById('open-orders-body').innerHTML =
+                        '<div class="text-center text-muted py-4"><p>Tidak dapat memuat data open order</p><small class="text-danger">Detail: ' + error.message + '</small></div>';
+                });
+        }
+
+        // Update dashboard with real-time data
+        function updateDashboard() {
+            // Fetch status, trades, and open orders in parallel
+            Promise.all([
+                fetch('/api/status?' + chartBotQuery()).then(r => r.json()),
+                fetch('/api/trades?' + chartBotQuery()).then(r => r.json())
+            ]).then(([statusData, tradesData]) => {
+                if (statusData.success) {
+                    const d = statusData.data;
+
+                    // Update status bar
+                    const statusIndicator = document.getElementById('status-indicator');
+                    const statusText = document.getElementById('status-text');
+                    const nextTradeText = document.getElementById('next-trade-text');
+                    const modeBadge = document.getElementById('mode-badge');
+
+                    if (statusIndicator) {
+                        statusIndicator.className = 'status-indicator ' + (d.bot_running ? 'status-running' : 'status-stopped');
+                    }
+                    if (statusText) {
+                        statusText.textContent = d.bot_running ? 'Running' : 'Stopped';
+                    }
+                    if (nextTradeText) {
+                        nextTradeText.textContent = d.next_trade_desc || '-';
+                    }
+                    const tpText = document.getElementById('tp-text');
+                    if (tpText) {
+                        tpText.textContent = d.tp_price_desc || '-';
+                    }
+                    if (modeBadge) {
+                        if (d.dry_run) {
+                            modeBadge.className = 'badge bg-warning text-dark';
+                            modeBadge.textContent = 'DRY RUN';
+                        } else {
+                            modeBadge.className = 'badge bg-success';
+                            modeBadge.textContent = 'LIVE';
+                        }
+                    }
+
+                    // Update stat cards
+                    updateStatValue(0, 'Rp ' + formatRupiah(d.current_price));
+                    updateStatValue(1, 'Rp ' + formatRupiah(d.idr_balance));
+                    updateStatValue(2, (d.crypto_balance || 0).toFixed(8));
+                    updateStatValue(3, d.total_trades || 0);
+
+                    // Update crypto balances table
+                    updateBalancesTable(d.all_crypto_balances, d.total_crypto_value);
+
+                    // Update DCA stats
+                    updateDcaStats(d);
+
+                    // Update action buttons
+                    updateActionButtons(d);
+
+                    // Update recent trades
+                    if (tradesData.success) {
+                        updateRecentTrades(tradesData.data);
+                    }
+                }
+            }).catch(error => console.error('Error updating dashboard:', error));
+        }
+
+        async function loadCycleStats() {
+            const body = document.getElementById('cycles-table-body');
+            if (!body) return;
+            try {
+                const response = await fetch('/api/cycles?' + chartBotQuery());
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || 'Gagal memuat siklus');
+                }
+                const stats = result.stats || {};
+                document.getElementById('cycle-closed').textContent =
+                    Number(stats.closed_cycles) || 0;
+                document.getElementById('cycle-win-rate').textContent =
+                    `${(Number(stats.win_rate) || 0).toFixed(1)}%`;
+                document.getElementById('cycle-duration').textContent =
+                    `${(Number(stats.average_duration_hours) || 0).toFixed(1)} jam`;
+                document.getElementById('cycle-fees').textContent =
+                    `Rp ${formatRupiah(Number(stats.total_fees) || 0)}`;
+
+                const cycles = Array.isArray(result.data) ? result.data : [];
+                if (!cycles.length) {
+                    body.innerHTML =
+                        '<tr><td colspan="8" class="text-center text-muted py-3">Belum ada siklus DCA tercatat.</td></tr>';
+                    return;
+                }
+                body.innerHTML = cycles.slice(0, 20).map(cycle => {
+                    const started = new Date(cycle.started_at);
+                    const closed = cycle.closed_at ? new Date(cycle.closed_at) : null;
+                    const duration = closed
+                        ? Math.max((closed - started) / 3600000, 0) : null;
+                    const profit = Number(cycle.realized_profit) || 0;
+                    const closedCycle = cycle.status === 'CLOSED';
+                    return `<tr>
+                        <td>${started.toLocaleString('id-ID')}</td>
+                        <td><span class="badge ${closedCycle ? 'bg-secondary' : 'bg-primary'}">${closedCycle ? cycle.close_reason || 'CLOSED' : 'OPEN'}</span></td>
+                        <td>${String(cycle.pair || '').toUpperCase()}</td>
+                        <td>Rp ${formatRupiah(Number(cycle.total_invested) || 0)}</td>
+                        <td>${Number(cycle.safety_orders_filled) || 0}</td>
+                        <td>${closedCycle ? 'Rp ' + formatRupiah(Number(cycle.exit_price) || 0) : '-'}</td>
+                        <td class="${profit >= 0 ? 'profit-positive' : 'profit-negative'}">${closedCycle ? (profit >= 0 ? '+' : '') + 'Rp ' + formatRupiah(profit) + '<small class="d-block">' + (Number(cycle.realized_profit_percent) || 0).toFixed(2) + '%</small>' : '-'}</td>
+                        <td>${duration === null ? '-' : duration.toFixed(1) + ' jam'}</td>
+                    </tr>`;
+                }).join('');
+            } catch (error) {
+                body.innerHTML =
+                    `<tr><td colspan="8" class="text-center text-danger py-3">${error.message}</td></tr>`;
+            }
+        }
+
+        // Update recent trades section
+        function updateRecentTrades(trades) {
+            const container = document.getElementById('recent-trades-body');
+            if (!container) return;
+
+            // Sound notifications for new filled trades
+            if (previousTrades !== null && trades && trades.length > 0) {
+                const latestTrade = trades[0];
+                const prevLatestTrade = previousTrades[0];
+                if (!prevLatestTrade || latestTrade.timestamp !== prevLatestTrade.timestamp) {
+                    const type = latestTrade.type ? latestTrade.type.toLowerCase() : '';
+                    if (type === 'take_profit' || type === 'stop_loss' || type === 'sell') {
+                        playSellSound();
+                    } else if (type === 'base' || type.startsWith('so_') || type === 'buy') {
+                        playBuySound();
+                    }
+                }
+            }
+            previousTrades = trades;
+
+            if (trades && trades.length > 0) {
+                // Show last 5 trades
+                const recentTrades = trades.slice(0, 5);
+                let html = '<div class="table-responsive"><table class="table table-sm trade-table">';
+                html += '<thead><tr><th>Waktu</th><th>Eksekusi</th><th>Harga</th><th>Jumlah</th><th>Crypto</th><th>Profit</th><th>Mode</th></tr></thead><tbody>';
+
+                recentTrades.forEach(trade => {
+                    const time = new Date(trade.timestamp).toLocaleString('id-ID', {
+                        month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+                    });
+                    const price = formatRupiah(trade.price);
+                    const amount = formatRupiah(trade.amount_idr);
+                    const crypto = formatCryptoAmount(trade.crypto_amount || 0);
+                    const mode = trade.dry_run
+                        ? '<span class="badge bg-warning text-dark">DRY</span>'
+                        : '<span class="badge bg-success">LIVE</span>';
+                    const isSell = String(trade.type || '').toLowerCase() === 'sell';
+                    const executionLabel = String(trade.trade_type || trade.type || '-')
+                        .replaceAll('_', ' ').toUpperCase();
+                    const execution = '<span class="badge ' + (isSell ? 'bg-danger' : 'bg-success') + '">' + executionLabel + '</span>';
+                    const realized = Number(trade.realized_profit) || 0;
+                    const profit = isSell
+                        ? '<span class="' + (realized >= 0 ? 'profit-positive' : 'profit-negative') + '">' + (realized >= 0 ? '+' : '') + 'Rp ' + formatRupiah(realized) + '<small class="d-block">' + (Number(trade.realized_profit_percent) || 0).toFixed(2) + '%</small></span>'
+                        : '<span class="text-muted">-</span>';
+                    html += '<tr><td>' + time + '</td><td>' + execution + '</td><td>Rp ' + price + '</td><td>Rp ' + amount + '</td><td>' + crypto + '</td><td>' + profit + '</td><td>' + mode + '</td></tr>';
+                });
+
+                html += '</tbody></table></div>';
+                html += '<div class="text-end mt-2"><a href="/trades" class="btn btn-sm btn-outline-primary">Lihat Semua</a></div>';
+                container.innerHTML = html;
+            } else {
+                container.innerHTML = '<div class="text-center text-muted py-4">' +
+                    '<i class="bi bi-inbox" style="font-size: 3rem;"></i>' +
+                    '<p class="mt-2">Belum ada riwayat trade</p>' +
+                    '</div>';
+            }
+        }
+
+        function updateStatValue(index, value) {
+            const cards = document.querySelectorAll('.stat-card .stat-value');
+            if (cards[index]) {
+                cards[index].textContent = value;
+            }
+        }
+
+        function formatRupiah(num) {
+            const val = Number(num) || 0;
+            if (Math.abs(val) > 0 && Math.abs(val) < 1) {
+                return new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 6 }).format(val);
+            } else if (Math.abs(val) >= 1 && Math.abs(val) < 100) {
+                return new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 4 }).format(val);
+            } else {
+                return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 }).format(val);
+            }
+        }
+
+        function formatCryptoAmount(num) {
+            const val = Number(num) || 0;
+            if (val === 0) return '0';
+            if (val >= 1000) return val.toLocaleString('id-ID', { maximumFractionDigits: 4 });
+            return val.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 8 });
+        }
+
+        function updateBalancesTable(balances, totalValue) {
+            const tbody = document.querySelector('#crypto-balances-collapse tbody');
+            if (!tbody) return;
+
+            // Update total — target the fw-semibold span inside .wallet-header
+            const totalSpan = document.querySelector('.wallet-header span.fw-semibold');
+            if (totalSpan) {
+                totalSpan.textContent = 'Total: Rp ' + formatRupiah(totalValue);
+            }
+
+            if (balances && balances.length > 0) {
+                tbody.innerHTML = balances.map(b => {
+                    const symbolLower = b.symbol.toLowerCase();
+                    const iconUrl = 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/' + symbolLower + '.png';
+                    const fallbackUrl = 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/32/color/generic.png';
+                    return '<tr><td class="text-center"><img src="' + iconUrl + '" onerror="this.onerror=null; this.src=\'' + fallbackUrl + '\';" width="24" height="24" alt="' + b.symbol + '" style="vertical-align: middle;"></td><td><strong>' + b.symbol + '</strong></td><td><span class="badge bg-info">' + b.pair.toUpperCase() + '</span></td><td>' + formatCryptoAmount(b.amount) + '</td><td>Rp ' + (b.price > 0 ? formatRupiah(b.price) : '-') + '</td><td><strong>Rp ' + formatRupiah(b.value_idr) + '</strong></td></tr>';
+                }).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Tidak ada saldo crypto</td></tr>';
+            }
+        }
+
+        function updateDcaStats(data) {
+            const elTotalInvested = document.getElementById('dca-total-invested');
+            const elTotalCrypto = document.getElementById('dca-total-crypto');
+            const elAvgPrice = document.getElementById('dca-avg-price');
+            const elProfitLoss = document.getElementById('dca-profit-loss');
+            const elRealized = document.getElementById('dca-realized-profit');
+
+            // Update Total Crypto label dynamically with coin symbol
+            const cryptoLabel = document.querySelector('#dca-total-crypto')?.previousElementSibling;
+            if (cryptoLabel && data.crypto_symbol) {
+                cryptoLabel.textContent = 'Total Crypto (' + data.crypto_symbol + ')';
+            }
+
+            if (elTotalInvested) elTotalInvested.textContent = 'Rp ' + formatRupiah(data.total_invested || 0);
+            if (elTotalCrypto) elTotalCrypto.textContent = formatCryptoAmount(data.total_crypto_bought || 0);
+            if (elAvgPrice) elAvgPrice.textContent = 'Rp ' + formatRupiah(data.avg_price || 0);
+
+            if (elProfitLoss) {
+                const plClass = (data.profit_loss || 0) >= 0 ? 'profit-positive' : 'profit-negative';
+                const plSign = (data.profit_loss || 0) >= 0 ? '+' : '';
+                elProfitLoss.className = 'dca-stat-value ' + plClass;
+
+                const plIdrText = data.profit_loss_idr ? ' (Rp ' + formatRupiah(data.profit_loss_idr) + ')' : '';
+                elProfitLoss.textContent = plSign + (data.profit_loss || 0).toFixed(2) + '%' + plIdrText;
+            }
+
+            if (elRealized) {
+                const realized = data.realized_profit || 0;
+                const rClass = realized >= 0 ? 'profit-positive' : 'profit-negative';
+                const rSign = realized >= 0 ? '+' : '';
+                elRealized.className = 'dca-stat-value ' + rClass;
+                elRealized.textContent = rSign + 'Rp ' + formatRupiah(realized);
+            }
+        }
+
+        function updateActionButtons(data) {
+            const button = document.getElementById('toggle-bot-btn');
+            if (button) {
+                if (data.bot_running) {
+                    button.onclick = stopBot;
+                    button.className = 'btn btn-warning btn-trade';
+                    button.innerHTML = '<i class="bi bi-pause me-2"></i>Stop Bot';
+                } else {
+                    button.onclick = startBot;
+                    button.className = 'btn btn-success btn-trade';
+                    button.innerHTML = '<i class="bi bi-play me-2"></i>Start Bot';
+                }
+            }
+        }
+
+        // Auto refresh open orders every 30 seconds
+        setInterval(updateOpenOrders, 30000);
+
+        // Auto refresh exchange trades every 30 seconds
+        setInterval(updateExchangeTrades, 30000);
+
+        // Auto refresh dashboard every 30 seconds
+        setInterval(updateDashboard, 30000);
+
+        // Keep per-bot strategy status synchronized with the Python manager.
+        setInterval(loadStrategyBots, 30000);
+        setInterval(loadCycleStats, 30000);
+    </script>
+</body>
+
+</html>

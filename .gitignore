@@ -1,0 +1,34 @@
+# ==============================================================================
+# Exbot DCA Bot - Git Ignore File
+# ==============================================================================
+
+# Dependensi Node.js
+node_modules/
+
+# Cache Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Konfigurasi IDE / Lokal
+.vscode/
+pyrightconfig.json
+
+# Log Bot dan File Data Lokal
+dca_bot.log
+dca_bot.stdout.log
+dca_data.json
+
+# File Sistem OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Database & Data
+data/
+backups/
+*.db
+.env
+config.py
+# keep .env.example
+!.env.example

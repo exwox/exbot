@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logs - Exbot DCA Bot</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg-base:#0d1117; --bg-surface:#161b22; --bg-card:#1c2333; --border-soft:rgba(99,110,140,.18); --accent-indigo:#6c63ff; --text-primary:#e2e8f0; --text-secondary:#94a3b8; --shadow-card:0 4px 24px rgba(0,0,0,.35); --radius-lg:14px; --radius-md:10px; }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg-base);
+            background-image: radial-gradient(ellipse 80% 50% at 20% -10%, rgba(108,99,255,.12), transparent 60%), radial-gradient(ellipse 60% 40% at 80% 110%, rgba(56,178,172,.08), transparent 60%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding-bottom: 50px;
+        }
+
+        .dashboard-container {
+            max-width: 1240px;
+            margin: 0 auto;
+            padding-top: 30px;
+        }
+
+        .card {
+            background: var(--bg-card); border: 1px solid var(--border-soft); border-radius: var(--radius-lg); box-shadow: var(--shadow-card);
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            background: transparent !important; border-bottom: 1px solid var(--border-soft) !important; border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important; font-weight:600; color:var(--text-primary);
+        }
+
+        .navbar {
+            background: var(--bg-surface) !important; border: 1px solid var(--border-soft); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); padding:12px 20px;
+        }
+
+        .navbar-brand { color:var(--accent-indigo) !important; font-weight:700; letter-spacing:.04em; }
+        .nav-link { color:var(--text-secondary) !important; font-size:.88rem; font-weight:500; padding:6px 14px !important; border-radius:var(--radius-md); }
+        .nav-link:hover, .nav-link.active { color:var(--text-primary) !important; background:rgba(108,99,255,.14); }
+        .text-muted { color:var(--text-secondary) !important; }
+
+        .log-content {
+            background-color: #111722;
+            color: #cbd5e1;
+            border: 1px solid var(--border-soft);
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            max-height: 600px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            min-height: 200px;
+        }
+
+        .log-content::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        .log-content::-webkit-scrollbar-track {
+            background: #2d2d2d;
+            border-radius: 5px;
+        }
+
+        .log-content::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <!-- Navigation -->
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="/">EXBOT
+                    <i class="bi bi-robot me-2"></i> </a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav ms-auto">
+                        <li class="nav-item">
+                            <a class="nav-link" href="/"><i class="bi bi-speedometer2 me-1"></i> Dashboard</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/trades"><i class="bi bi-arrow-left-right me-1"></i> Riwayat
+                                Trade</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/settings"><i class="bi bi-gear me-1"></i>Settings</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link active" href="/logs"><i class="bi bi-file-text me-1"></i>Logs</a>
+                        </li>
+                        <li class="nav-item" id="nav-admin" style="display: none;">
+                            <a class="nav-link text-warning" href="/admin"><i class="bi bi-shield-lock me-1"></i>Admin</a>
+                        </li>
+                        <li class="nav-item" id="nav-user" style="display: none;">
+                            <a class="nav-link" href="#"><i class="bi bi-person me-1"></i><span id="username-display"></span></a>
+                        </li>
+                        <li class="nav-item" id="nav-logout" style="display: none;">
+                            <a class="nav-link text-danger" href="#" onclick="logout()"><i class="bi bi-box-arrow-right me-1"></i>Logout</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Logs Card -->
+        <div class="card">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-terminal me-2"></i>Bot Logs</span>
+                <button class="btn btn-sm btn-outline-light" onclick="copyLogs()">
+                    <i class="bi bi-clipboard me-1"></i>Copy Logs
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <div class="log-content" id="logContent">
+                    <div class="text-center text-muted">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Memuat logs...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Back Button -->
+        <div class="text-center">
+            <a href="/" class="btn btn-outline-primary">
+                <i class="bi bi-arrow-left me-1"></i>Kembali ke Dashboard
+            </a>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap/5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.navbar-toggler[data-bs-target]').forEach(button => {
+                button.addEventListener('click', () => {
+                    if (window.bootstrap?.Collapse) return;
+                    const target = document.querySelector(button.dataset.bsTarget);
+                    if (!target) return;
+                    const opened = target.classList.toggle('show');
+                    button.setAttribute('aria-expanded', String(opened));
+                });
+            });
+        });
+    </script>
+    <script>
+        (async function requireSession() {
+            try {
+                const result = await (await fetch('/api/auth/me')).json();
+                if (!result.success) throw new Error('Invalid session');
+                const user = result.data || result.user;
+                if (user) {
+                    const navUser = document.getElementById('nav-user');
+                    const usernameDisplay = document.getElementById('username-display');
+                    const navLogout = document.getElementById('nav-logout');
+                    const navAdmin = document.getElementById('nav-admin');
+                    if (navUser) navUser.style.display = 'block';
+                    if (usernameDisplay) usernameDisplay.textContent = user.username;
+                    if (navLogout) navLogout.style.display = 'block';
+                    if (user.is_admin && navAdmin) navAdmin.style.display = 'block';
+                }
+            } catch (_) { window.location.replace('/login'); }
+        })();
+
+        function logout() {
+            fetch('/api/auth/logout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            }).then(() => {
+                window.location.href = '/login';
+            });
+        }
+
+        function copyLogs() {
+            const logContent = document.getElementById('logContent').textContent;
+            navigator.clipboard.writeText(logContent).then(() => {
+                alert('Logs berhasil dicopy!');
+            }).catch(err => {
+                alert('Gagal copy logs');
+            });
+        }
+
+        // Load only logs from the authenticated user's accounts.
+        fetch('/api/logs')
+            .then(response => response.json())
+            .then(result => {
+                if (!result.success) throw new Error(result.error || 'Gagal memuat logs');
+                const logContent = document.getElementById('logContent');
+                if (!result.data.length) {
+                    logContent.textContent = 'Belum ada log untuk akun Anda.';
+                    return;
+                }
+                logContent.textContent = result.data.map(log =>
+                    `[${log.created_at}] ${log.level}${log.event ? ` ${log.event}` : ''}: ${log.message}`
+                ).join('\n');
+                logContent.scrollTop = logContent.scrollHeight;
+            })
+            .catch(error => {
+                console.error('Error loading logs:', error);
+                document.getElementById('logContent').textContent = 'Gagal memuat logs.';
+            });
+    </script>
+</body>
+
+</html>

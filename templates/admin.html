@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - User Management & Python Logs - EXBOT</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #0d1117;
+            --bg-surface: #161b22;
+            --bg-card: #1c2333;
+            --border-soft: rgba(99, 110, 140, 0.18);
+            --accent-indigo: #6c63ff;
+            --accent-teal: #38b2ac;
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.35);
+            --radius-lg: 14px;
+            --radius-md: 10px;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg-base);
+            background-image: radial-gradient(ellipse 80% 50% at 20% -10%, rgba(108, 99, 255, 0.12), transparent 60%),
+                              radial-gradient(ellipse 60% 40% at 80% 110%, rgba(56, 178, 172, 0.08), transparent 60%);
+            min-height: 100vh;
+            color: var(--text-primary);
+        }
+
+        .navbar {
+            background: var(--bg-surface) !important;
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-card);
+            padding: 12px 20px;
+            margin-bottom: 24px;
+        }
+
+        .navbar-brand {
+            color: var(--accent-indigo) !important;
+            font-weight: 700;
+            letter-spacing: .04em;
+        }
+
+        .navbar .nav-link {
+            color: var(--text-secondary);
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .navbar .nav-link:hover,
+        .navbar .nav-link.active {
+            color: #ffffff;
+        }
+
+        .badge-admin {
+            background: linear-gradient(135deg, #6c63ff, #ff4757);
+            color: white;
+            font-size: 0.7rem;
+            padding: 3px 8px;
+            border-radius: 6px;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+        }
+
+        .card-custom {
+            background: var(--bg-card);
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-card);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .metric-title {
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .metric-value {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .control-bar {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius-md);
+            padding: 14px;
+            margin-bottom: 16px;
+        }
+
+        .form-control,
+        .form-select {
+            background: var(--bg-base);
+            border: 1px solid var(--border-soft);
+            color: var(--text-primary);
+            border-radius: 8px;
+        }
+
+        .form-control:focus,
+        .form-select:focus {
+            background: var(--bg-base);
+            border-color: var(--accent-indigo);
+            color: var(--text-primary);
+            box-shadow: 0 0 0 0.2rem rgba(108, 99, 255, 0.25);
+        }
+
+        .btn-custom {
+            border-radius: 8px;
+            font-weight: 500;
+            padding: 8px 16px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-indigo {
+            background: var(--accent-indigo);
+            color: white;
+            border: none;
+        }
+
+        .btn-indigo:hover {
+            background: #5b52e0;
+            color: white;
+        }
+
+        .btn-outline-custom {
+            background: transparent;
+            border: 1px solid var(--border-soft);
+            color: var(--text-primary);
+        }
+
+        .btn-outline-custom:hover {
+            background: var(--bg-surface);
+            color: white;
+        }
+
+        /* Terminal Window */
+        .terminal-container {
+            background: #090d16;
+            border: 1px solid rgba(108, 99, 255, 0.25);
+            border-radius: var(--radius-lg);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 420px);
+            min-height: 400px;
+        }
+
+        .terminal-header {
+            background: #111726;
+            border-bottom: 1px solid var(--border-soft);
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .terminal-dots {
+            display: flex;
+            gap: 6px;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .dot-red { background: #ff5f56; }
+        .dot-yellow { background: #ffbd2e; }
+        .dot-green { background: #27c93f; }
+
+        .terminal-body {
+            font-family: 'Fira Code', monospace, consolas;
+            font-size: 0.83rem;
+            line-height: 1.5;
+            padding: 16px;
+            overflow-y: auto;
+            flex: 1;
+            color: #d1d5db;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .log-line {
+            padding: 3px 6px;
+            border-radius: 4px;
+            transition: background 0.15s ease;
+        }
+
+        .log-line:hover {
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .log-info { color: #80deea; }
+        .log-warn { color: #ffb74d; font-weight: 500; }
+        .log-error { color: #ff5252; font-weight: 700; background: rgba(255, 82, 82, 0.1); }
+        .log-start { color: #69f0ae; font-weight: 600; }
+        .log-order { color: #b388ff; }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+        }
+
+        .status-online { background: #28a745; box-shadow: 0 0 8px #28a745; }
+        .status-offline { background: #dc3545; }
+
+        /* Modal styling */
+        .modal-content {
+            background: var(--bg-card);
+            border: 1px solid var(--border-soft);
+            color: var(--text-primary);
+        }
+
+        .modal-header {
+            border-bottom: 1px solid var(--border-soft);
+        }
+
+        .modal-footer {
+            border-top: 1px solid var(--border-soft);
+        }
+
+        .nav-pills .nav-link {
+            color: var(--text-secondary);
+            border-radius: 10px;
+            padding: 10px 20px;
+            font-weight: 600;
+        }
+
+        .nav-pills .nav-link.active {
+            background-color: var(--accent-indigo);
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container-fluid px-4 py-3">
+        <!-- Navbar -->
+        <nav class="navbar navbar-expand-lg navbar-dark">
+            <div class="container-fluid">
+                <a class="navbar-brand d-flex align-items-center gap-2" href="/">
+                    <i class="bi bi-robot fs-4"></i>
+                    <span>EXBOT</span>
+                    <span class="badge badge-admin ms-2"><i class="bi bi-shield-lock-fill"></i> Admin Panel</span>
+                </a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav me-auto ms-4">
+                        <li class="nav-item"><a class="nav-link" href="/"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/trades"><i class="bi bi-journal-text"></i> Trade History</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/logs"><i class="bi bi-file-earmark-text"></i> User Logs</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/settings"><i class="bi bi-gear"></i> Settings</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/backtest"><i class="bi bi-graph-up"></i> Backtest</a></li>
+                        <li class="nav-item"><a class="nav-link active fw-bold text-warning" href="/admin"><i class="bi bi-shield-lock"></i> Admin Panel</a></li>
+                    </ul>
+                    <div class="d-flex align-items-center gap-3">
+                        <span id="userInfo" class="text-secondary small"><i class="bi bi-person-circle"></i> Admin Mode</span>
+                        <button class="btn btn-outline-danger btn-sm rounded-pill" onclick="logout()"><i class="bi bi-box-arrow-right"></i> Logout</button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Access Guard Warning (shown if unauthorized) -->
+        <div id="accessDeniedAlert" class="alert alert-danger d-none my-4" role="alert">
+            <h4 class="alert-heading"><i class="bi bi-exclamation-triangle-fill"></i> Akses Ditolak!</h4>
+            <p>Halaman Admin Panel ini hanya dapat diakses oleh akun dengan username <strong>admin</strong>.</p>
+            <hr>
+            <a href="/" class="btn btn-outline-danger btn-sm">Kembali ke Dashboard Utama</a>
+        </div>
+
+        <!-- Main Content -->
+        <div id="adminContent">
+            <!-- Navigation Tabs -->
+            <ul class="nav nav-pills mb-3" id="adminTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="tab-users-btn" data-bs-toggle="tab" data-bs-target="#tab-users" type="button" role="tab">
+                        <i class="bi bi-people-fill me-1"></i> User Management
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-logs-btn" data-bs-toggle="tab" data-bs-target="#tab-logs" type="button" role="tab">
+                        <i class="bi bi-terminal-fill me-1"></i> Python Process Logs
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-backup-btn" data-bs-toggle="tab" data-bs-target="#tab-backup" type="button" role="tab">
+                        <i class="bi bi-database-fill-gear me-1"></i> Backup & Restore Database
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="adminTabsContent">
+                <!-- TAB 1: User Management -->
+                <div class="tab-pane fade show active" id="tab-users" role="tabpanel">
+                    <div class="card-custom">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div>
+                                <h5 class="fw-bold mb-0 text-light"><i class="bi bi-person-badge text-warning me-2"></i>Daftar Pengguna Sistem</h5>
+                                <span class="text-secondary small">Kelola akun, reset password, dan status aktif pengguna</span>
+                            </div>
+                            <button class="btn btn-indigo btn-sm btn-custom" onclick="openAddUserModal()">
+                                <i class="bi bi-person-plus-fill me-1"></i> + Tambah User Baru
+                            </button>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-dark table-hover align-middle mb-0" style="border-color: var(--border-soft);">
+                                <thead>
+                                    <tr class="text-secondary small text-uppercase">
+                                        <th>ID</th>
+                                        <th>Username</th>
+                                        <th>Email</th>
+                                        <th>Bot & Status Running</th>
+                                        <th>Masa Sewa (Expired)</th>
+                                        <th>Status User</th>
+                                        <th>Tanggal Terdaftar</th>
+                                        <th class="text-end">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usersTableBody">
+                                    <tr>
+                                        <td colspan="8" class="text-center py-4 text-secondary">
+                                            <div class="spinner-border spinner-border-sm me-2" role="status"></div> Memuat daftar pengguna...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 2: Live Python Log Terminal -->
+                <div class="tab-pane fade" id="tab-logs" role="tabpanel">
+                    <!-- System Overview Cards -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-3">
+                            <div class="card-custom mb-0">
+                                <div class="metric-title"><i class="bi bi-file-earmark-code"></i> Python Log Status</div>
+                                <div class="d-flex align-items-center mt-2">
+                                    <span id="logStatusDot" class="status-dot status-offline"></span>
+                                    <span id="logStatusText" class="metric-value fs-5">Checking...</span>
+                                </div>
+                                <div id="logFilePath" class="text-secondary small mt-1 text-truncate" title="log path">logs/dca_bot.log</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card-custom mb-0">
+                                <div class="metric-title"><i class="bi bi-hdd"></i> Log File Size</div>
+                                <div id="logFileSize" class="metric-value">0 KB</div>
+                                <div id="logTotalLines" class="text-secondary small mt-1">0 lines loaded</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card-custom mb-0">
+                                <div class="metric-title"><i class="bi bi-cpu"></i> Running Bots / Total</div>
+                                <div id="runningBotsCount" class="metric-value text-success">0 / 0</div>
+                                <div class="text-secondary small mt-1">Python worker threads</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card-custom mb-0">
+                                <div class="metric-title"><i class="bi bi-arrow-repeat"></i> Live Sync</div>
+                                <div id="lastUpdatedTime" class="metric-value fs-5 text-teal">Just now</div>
+                                <div class="text-secondary small mt-1">Auto-refresh <span id="autoRefreshStatusText" class="badge bg-success">ON</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Control Bar -->
+                    <div class="control-bar">
+                        <div class="row g-2 align-items-center">
+                            <div class="col-md-2">
+                                <label class="form-label text-secondary mb-1 small">Log Level Filter</label>
+                                <select id="levelFilter" class="form-select form-select-sm" onchange="fetchPythonLogs()">
+                                    <option value="ALL">ALL (Semua Level)</option>
+                                    <option value="INFO">INFO Only</option>
+                                    <option value="WARNING">WARNING Only</option>
+                                    <option value="ERROR">ERROR Only</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label text-secondary mb-1 small">Jumlah Baris</label>
+                                <select id="lineLimit" class="form-select form-select-sm" onchange="fetchPythonLogs()">
+                                    <option value="100">100 Baris</option>
+                                    <option value="200" selected>200 Baris</option>
+                                    <option value="500">500 Baris</option>
+                                    <option value="1000">1000 Baris</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label text-secondary mb-1 small">Pencarian Teks / Keyword</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-dark border-secondary text-secondary"><i class="bi bi-search"></i></span>
+                                    <input type="text" id="searchInput" class="form-control" placeholder="Cari teks log (misal: bot_id, error)..." onkeyup="filterLogsLocally()">
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label text-secondary mb-1 small">Auto Refresh</label>
+                                <div class="form-check form-switch pt-1">
+                                    <input class="form-check-input" type="checkbox" id="autoRefreshToggle" checked onchange="toggleAutoRefresh()">
+                                    <label class="form-check-label text-secondary small" for="autoRefreshToggle">Setiap 3 Detik</label>
+                                </div>
+                            </div>
+                            <div class="col-md-3 text-end pt-3">
+                                <button class="btn btn-custom btn-indigo btn-sm me-1" onclick="fetchPythonLogs()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+                                <button class="btn btn-custom btn-outline-custom btn-sm me-1" onclick="clearConsole()"><i class="bi bi-eraser"></i> Clear UI</button>
+                                <button class="btn btn-custom btn-outline-custom btn-sm" onclick="downloadLogFile()"><i class="bi bi-download"></i> Download</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Terminal Output Window -->
+                    <div class="terminal-container">
+                        <div class="terminal-header">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="terminal-dots">
+                                    <span class="dot dot-red"></span>
+                                    <span class="dot dot-yellow"></span>
+                                    <span class="dot dot-green"></span>
+                                </div>
+                                <span class="text-secondary small font-monospace ms-2"><i class="bi bi-terminal"></i> dca_bot.log (Live Python Console Output)</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="text-secondary small font-monospace"><i class="bi bi-lock"></i> Auto-Scroll: <span id="autoScrollStatus" class="text-success">ACTIVE</span></span>
+                            </div>
+                        </div>
+                        <div id="terminalBody" class="terminal-body" onscroll="handleScroll()">
+                            <div class="text-secondary py-3 text-center"><i class="bi bi-hourglass-split"></i> Memuat log proses Python...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: Database Backup & Restore -->
+                <div class="tab-pane fade" id="tab-backup" role="tabpanel">
+                    <div class="row g-4">
+                        <!-- Export Card -->
+                        <div class="col-md-6">
+                            <div class="card-custom h-100 d-flex flex-column">
+                                <div class="d-flex align-items-center gap-3 mb-3">
+                                    <div class="p-3 rounded-3" style="background: rgba(108, 99, 255, 0.15); color: var(--accent-indigo);">
+                                        <i class="bi bi-download fs-2"></i>
+                                    </div>
+                                    <div>
+                                        <h5 class="fw-bold mb-1 text-light">Export Backup Database</h5>
+                                        <span class="text-secondary small">Unduh data sistem (users, bots, strategi, akun, transaksi)</span>
+                                    </div>
+                                </div>
+                                <p class="text-secondary small mb-4">
+                                    Fungsi export ini akan mengambil snapshot seluruh tabel SQLite secara aman dan mengunduhnya sebagai file <code>.json</code>. Anda dapat menyimpannya sebagai cadangan data.
+                                </p>
+                                <div class="d-flex flex-column gap-2 mt-auto">
+                                    <button class="btn btn-indigo btn-custom w-100 d-flex align-items-center justify-content-center gap-2" onclick="exportDatabaseJSON()">
+                                        <i class="bi bi-file-earmark-arrow-down-fill"></i> Download Export JSON Backup
+                                    </button>
+                                    <button class="btn btn-outline-custom btn-custom w-100 d-flex align-items-center justify-content-center gap-2" onclick="downloadRawDatabaseFile()">
+                                        <i class="bi bi-database-fill-down"></i> Download File Raw SQLite (.sqlite)
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Import Card -->
+                        <div class="col-md-6">
+                            <div class="card-custom h-100 d-flex flex-column">
+                                <div class="d-flex align-items-center gap-3 mb-3">
+                                    <div class="p-3 rounded-3" style="background: rgba(56, 178, 172, 0.15); color: var(--accent-teal);">
+                                        <i class="bi bi-upload fs-2"></i>
+                                    </div>
+                                    <div>
+                                        <h5 class="fw-bold mb-1 text-light">Import & Restore Database</h5>
+                                        <span class="text-secondary small">Pulihkan atau perbarui data sistem dari file backup JSON</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label text-secondary small fw-bold">Pilih File JSON Backup</label>
+                                    <input type="file" id="importJsonFileInput" class="form-control form-control-sm" accept=".json,application/json" onchange="handleFileSelect(event)">
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label text-secondary small fw-bold">Mode Import</label>
+                                    <select id="importModeSelect" class="form-select form-select-sm">
+                                        <option value="merge" selected>Merge / Upsert (Perbarui record teridentifikasi, pertahankan sisanya)</option>
+                                        <option value="replace">Replace Total (Hapus database lama & ganti dengan file backup)</option>
+                                    </select>
+                                </div>
+
+                                <div class="card bg-dark border-secondary p-3 mb-3 d-none" id="importPreviewCard">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="text-warning small fw-bold"><i class="bi bi-eye me-1"></i> Preview Konten Backup</span>
+                                        <span id="importFileDate" class="text-secondary small font-monospace"></span>
+                                    </div>
+                                    <div id="importSummaryBadges" class="d-flex flex-wrap gap-1"></div>
+                                </div>
+
+                                <button class="btn btn-custom w-100 d-flex align-items-center justify-content-center gap-2 mt-auto" id="btnExecuteImport" onclick="submitImportJSON()" disabled style="background: var(--accent-teal); color: white; border: none;">
+                                    <i class="bi bi-file-earmark-arrow-up-fill"></i> Jalankan Import Database
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Tambah User Baru -->
+    <div class="modal fade" id="addUserModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-person-plus-fill text-warning me-2"></i>Tambah User Baru</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="addUserForm" onsubmit="submitAddUser(event)">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label text-secondary small fw-semibold">Username</label>
+                            <input type="text" id="addUsername" class="form-control" placeholder="misal: john_doe" required minlength="3" maxlength="64">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-secondary small fw-semibold">Email (Opsional)</label>
+                            <input type="email" id="addEmail" class="form-control" placeholder="john@example.com">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-secondary small fw-semibold">Password</label>
+                            <input type="password" id="addPassword" class="form-control" placeholder="Minimal 6 karakter" required minlength="6">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-secondary small fw-semibold">Masa Sewa Aktif s.d (Opsional)</label>
+                            <input type="date" id="addExpiredAt" class="form-control">
+                        </div>
+                        <div class="form-check form-switch mt-2">
+                            <input class="form-check-input" type="checkbox" id="addIsActive">
+                            <label class="form-check-label text-secondary small" for="addIsActive">Status Akun Aktif (Default Nonaktif untuk Pendaftaran Baru)</label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-indigo btn-sm btn-custom" id="submitAddBtn">Simpan User</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Edit User -->
+    <div class="modal fade" id="editUserModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square text-warning me-2"></i>Edit User</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="editUserForm" onsubmit="submitEditUser(event)">
+                    <input type="hidden" id="editUserId">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label text-secondary small fw-semibold">Username</label>
+                            <input type="text" id="editUsername" class="form-control text-muted" disabled>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-secondary small fw-semibold">Email</label>
+                            <input type="email" id="editEmail" class="form-control" placeholder="user@example.com">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-secondary small fw-semibold">Reset Password Baru (Biarkan kosong jika tidak diubah)</label>
+                            <input type="password" id="editPassword" class="form-control" placeholder="Minimal 6 karakter">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-secondary small fw-semibold">Masa Sewa Aktif s.d (Opsional)</label>
+                            <input type="date" id="editExpiredAt" class="form-control">
+                        </div>
+                        <div class="form-check form-switch mt-2">
+                            <input class="form-check-input" type="checkbox" id="editIsActive">
+                            <label class="form-check-label text-secondary small" for="editIsActive">Status Akun Aktif</label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-indigo btn-sm btn-custom" id="submitEditBtn">Update User</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let sessionToken = '';
+        let autoRefreshInterval = null;
+        let autoScroll = true;
+        let cachedLines = [];
+        let allUsers = [];
+
+        async function checkAdminAuth() {
+            try {
+                const res = await fetch('/api/user/me', {
+                    headers: { 'Authorization': `Bearer ${sessionToken}` }
+                });
+                const data = await res.json();
+                if (!data.success || !data.user.is_admin) {
+                    document.getElementById('adminContent').classList.add('d-none');
+                    document.getElementById('accessDeniedAlert').classList.remove('d-none');
+                    return false;
+                }
+                document.getElementById('userInfo').innerHTML = `<i class="bi bi-person-circle text-warning"></i> Admin (${data.user.username})`;
+                return true;
+            } catch (e) {
+                console.error(e);
+                return false;
+            }
+        }
+
+        /* User Management Logic */
+        async function fetchUsers() {
+            try {
+                const res = await fetch('/api/admin/users', {
+                    headers: { 'Authorization': `Bearer ${sessionToken}` }
+                });
+                const result = await res.json();
+                if (result.success) {
+                    allUsers = result.data;
+                    renderUsersTable(allUsers);
+                } else {
+                    alert('Gagal memuat pengguna: ' + (result.error || 'Unknown error'));
+                }
+            } catch (e) {
+                console.error('Failed to fetch users:', e);
+            }
+        }
+
+        function renderUsersTable(users) {
+            const tbody = document.getElementById('usersTableBody');
+            if (!users || users.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-secondary">Belum ada pengguna terdaftar.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = users.map(user => {
+                const dateStr = user.created_at ? new Date(user.created_at).toLocaleString('id-ID') : '-';
+                const isActive = !!user.is_active;
+                const isAdmin = !!user.is_admin;
+
+                let expiredBadge = '';
+                if (user.expired_at) {
+                    const expTime = user.expired_at.includes('T') ? new Date(user.expired_at).getTime() : new Date(user.expired_at + 'T23:59:59').getTime();
+                    const isExp = Date.now() > expTime;
+                    const dateFormatted = user.expired_at.split('T')[0];
+                    if (isExp) {
+                        expiredBadge = `<span class="badge bg-danger-subtle text-danger border border-danger" title="Masa sewa telah berakhir"><i class="bi bi-calendar-x me-1"></i>Expired (${dateFormatted})</span>`;
+                    } else {
+                        expiredBadge = `<span class="badge bg-success-subtle text-success border border-success" title="Masa sewa aktif"><i class="bi bi-calendar-check me-1"></i>s.d. ${dateFormatted}</span>`;
+                    }
+                } else {
+                    expiredBadge = `<span class="badge bg-secondary-subtle text-secondary border border-secondary"><i class="bi bi-infinity me-1"></i>Tanpa Batas</span>`;
+                }
+
+                let statusBadge = '';
+                if (!isActive) {
+                    statusBadge = `<span class="badge bg-danger-subtle text-danger border border-danger"><i class="bi bi-x-circle me-1"></i>Inactive</span>`;
+                } else if (user.expired_at && Date.now() > (user.expired_at.includes('T') ? new Date(user.expired_at).getTime() : new Date(user.expired_at + 'T23:59:59').getTime())) {
+                    statusBadge = `<span class="badge bg-warning-subtle text-warning border border-warning"><i class="bi bi-clock-history me-1"></i>Sewa Habis</span>`;
+                } else {
+                    statusBadge = `<span class="badge bg-success-subtle text-success border border-success"><i class="bi bi-check-circle me-1"></i>Active</span>`;
+                }
+
+                let botsHtml = '';
+                if (user.bots && user.bots.length > 0) {
+                    botsHtml = user.bots.map(b => {
+                        const statusUpper = String(b.status || 'STOPPED').toUpperCase();
+                        let badgeClass = 'bg-secondary';
+                        let iconClass = 'bi-stop-circle';
+                        if (statusUpper === 'RUNNING') {
+                            badgeClass = 'bg-success';
+                            iconClass = 'bi-play-fill';
+                        } else if (statusUpper === 'PAUSED') {
+                            badgeClass = 'bg-warning text-dark';
+                            iconClass = 'bi-pause-fill';
+                        } else if (statusUpper === 'ERROR') {
+                            badgeClass = 'bg-danger';
+                            iconClass = 'bi-exclamation-triangle-fill';
+                        }
+
+                        const dryRunBadge = b.dry_run
+                            ? `<span class="badge bg-info-subtle text-info border border-info ms-1" style="font-size:0.75em">DRY</span>`
+                            : `<span class="badge bg-danger-subtle text-warning border border-warning ms-1" style="font-size:0.75em">REAL</span>`;
+
+                        return `<div class="mb-1 text-nowrap d-flex align-items-center gap-1">
+                            <span class="fw-semibold text-light"><i class="bi bi-robot text-warning me-1"></i>${b.name || 'Bot'}</span>
+                            <small class="text-secondary me-1">(${b.pair || ''})</small>
+                            ${dryRunBadge}
+                            <span class="badge ${badgeClass} ms-1"><i class="bi ${iconClass} me-1"></i>${statusUpper}</span>
+                        </div>`;
+                    }).join('');
+                } else {
+                    botsHtml = `<span class="text-secondary small font-italic"><i class="bi bi-dash-circle me-1"></i>Belum ada bot</span>`;
+                }
+
+                return `
+                    <tr>
+                        <td class="font-monospace small text-secondary">${user.id}</td>
+                        <td class="fw-bold">${user.username} ${isAdmin ? '<span class="badge bg-warning text-dark ms-1">ADMIN</span>' : ''}</td>
+                        <td>${user.email || '<span class="text-secondary font-italic">-</span>'}</td>
+                        <td>${botsHtml}</td>
+                        <td>${expiredBadge}</td>
+                        <td>${statusBadge}</td>
+                        <td class="small text-secondary">${dateStr}</td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-info me-1" onclick="openEditUserModal('${user.id}')" title="Edit User">
+                                <i class="bi bi-pencil"></i> Edit
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteUser('${user.id}', '${user.username}')" ${isAdmin ? 'disabled title="Akun admin utama tidak dapat dihapus"' : 'title="Hapus User"'}>
+                                <i class="bi bi-trash"></i> Hapus
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function openAddUserModal() {
+            document.getElementById('addUserForm').reset();
+            document.getElementById('addIsActive').checked = false;
+            document.getElementById('addExpiredAt').value = '';
+            const modal = new bootstrap.Modal(document.getElementById('addUserModal'));
+            modal.show();
+        }
+
+        async function submitAddUser(event) {
+            event.preventDefault();
+            const username = document.getElementById('addUsername').value.trim();
+            const email = document.getElementById('addEmail').value.trim();
+            const password = document.getElementById('addPassword').value;
+            const is_active = document.getElementById('addIsActive').checked;
+            const expired_at = document.getElementById('addExpiredAt').value || null;
+
+            const btn = document.getElementById('submitAddBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Menyimpan...';
+
+            try {
+                const res = await fetch('/api/admin/users', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${sessionToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, email, password, is_active, expired_at })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('addUserModal')).hide();
+                    await fetchUsers();
+                    alert(result.message || 'User berhasil ditambahkan');
+                } else {
+                    alert('Gagal menambah user: ' + result.error);
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Simpan User';
+            }
+        }
+
+        function openEditUserModal(userId) {
+            const user = allUsers.find(u => String(u.id) === String(userId));
+            if (!user) return;
+
+            document.getElementById('editUserId').value = user.id;
+            document.getElementById('editUsername').value = user.username;
+            document.getElementById('editEmail').value = user.email || '';
+            document.getElementById('editPassword').value = '';
+            document.getElementById('editExpiredAt').value = user.expired_at ? user.expired_at.split('T')[0] : '';
+            document.getElementById('editIsActive').checked = !!user.is_active;
+
+            document.getElementById('editIsActive').disabled = !!user.is_admin;
+
+            const modal = new bootstrap.Modal(document.getElementById('editUserModal'));
+            modal.show();
+        }
+
+        async function submitEditUser(event) {
+            event.preventDefault();
+            const userId = document.getElementById('editUserId').value;
+            const email = document.getElementById('editEmail').value.trim();
+            const password = document.getElementById('editPassword').value;
+            const is_active = document.getElementById('editIsActive').checked;
+            const expired_at = document.getElementById('editExpiredAt').value || null;
+
+            const btn = document.getElementById('submitEditBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Meng-update...';
+
+            const payload = { email, is_active, expired_at };
+            if (password) payload.password = password;
+
+            try {
+                const res = await fetch(`/api/admin/users/${userId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${sessionToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const result = await res.json();
+                if (result.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('editUserModal')).hide();
+                    await fetchUsers();
+                    alert(result.message || 'User berhasil di-update');
+                } else {
+                    alert('Gagal update user: ' + result.error);
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Update User';
+            }
+        }
+
+        async function deleteUser(userId, username) {
+            if (!confirm(`Apakah Anda yakin ingin menghapus user '${username}'?\n\nTindakan ini tidak dapat dibatalkan.`)) {
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/admin/users/${userId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${sessionToken}` }
+                });
+                const result = await res.json();
+                if (result.success) {
+                    await fetchUsers();
+                    alert(result.message || 'User berhasil dihapus');
+                } else {
+                    alert('Gagal menghapus user: ' + result.error);
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        }
+
+        /* Python Logs Logic */
+        async function fetchSystemStatus() {
+            try {
+                const res = await fetch('/api/admin/status', {
+                    headers: { 'Authorization': `Bearer ${sessionToken}` }
+                });
+                const result = await res.json();
+                if (result.success) {
+                    const data = result.data;
+                    document.getElementById('runningBotsCount').innerText = `${data.running_bots} / ${data.total_bots}`;
+                    
+                    if (data.python_log.exists) {
+                        document.getElementById('logStatusDot').className = 'status-dot status-online';
+                        document.getElementById('logStatusText').innerText = 'Active Running';
+                        document.getElementById('logStatusText').className = 'metric-value fs-5 text-success';
+                        
+                        const sizeKB = (data.python_log.size_bytes / 1024).toFixed(1);
+                        const sizeMB = (data.python_log.size_bytes / (1024 * 1024)).toFixed(2);
+                        document.getElementById('logFileSize').innerText = sizeKB > 1024 ? `${sizeMB} MB` : `${sizeMB} KB`;
+                        document.getElementById('logFilePath').innerText = data.python_log.path;
+                    } else {
+                        document.getElementById('logStatusDot').className = 'status-dot status-offline';
+                        document.getElementById('logStatusText').innerText = 'Not Found';
+                        document.getElementById('logStatusText').className = 'metric-value fs-5 text-danger';
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to fetch system status:', e);
+            }
+        }
+
+        async function fetchPythonLogs() {
+            if (!sessionToken) return;
+
+            const limit = document.getElementById('lineLimit').value;
+            const level = document.getElementById('levelFilter').value;
+            const search = document.getElementById('searchInput').value;
+
+            try {
+                const query = new URLSearchParams({ limit, level, search });
+                const res = await fetch(`/api/admin/python-logs?${query}`, {
+                    headers: { 'Authorization': `Bearer ${sessionToken}` }
+                });
+                const result = await res.json();
+
+                if (result.success) {
+                    cachedLines = result.data.lines;
+                    renderTerminalLogs(cachedLines);
+                    document.getElementById('logTotalLines').innerText = `${result.data.lines.length} baris ditampilkan (${result.data.total_lines} total)`;
+                    document.getElementById('lastUpdatedTime').innerText = new Date().toLocaleTimeString('id-ID');
+                } else if (result.error && result.error.includes('Akses ditolak')) {
+                    document.getElementById('adminContent').classList.add('d-none');
+                    document.getElementById('accessDeniedAlert').classList.remove('d-none');
+                }
+            } catch (e) {
+                console.error('Error fetching logs:', e);
+            }
+        }
+
+        function formatLogLine(line) {
+            const escaped = line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            let cssClass = "log-info";
+
+            if (line.includes("- ERROR -") || line.includes("[ERROR]") || line.includes("Exception") || line.includes("Traceback")) {
+                cssClass = "log-error";
+            } else if (line.includes("- WARNING -") || line.includes("[WARN]")) {
+                cssClass = "log-warn";
+            } else if (line.includes("[BOT_START]") || line.includes("Worker loop started")) {
+                cssClass = "log-start";
+            } else if (line.includes("[ORDER_PLACED]") || line.includes("TP order placed") || line.includes("SO")) {
+                cssClass = "log-order";
+            }
+
+            return `<div class="log-line ${cssClass}">${escaped}</div>`;
+        }
+
+        function renderTerminalLogs(lines) {
+            const terminal = document.getElementById('terminalBody');
+
+            if (!lines || lines.length === 0) {
+                terminal.innerHTML = `<div class="text-secondary py-3 text-center"><i class="bi bi-info-circle"></i> Tidak ada baris log yang cocok dengan filter.</div>`;
+                return;
+            }
+
+            terminal.innerHTML = lines.map(line => formatLogLine(line)).join('');
+
+            if (autoScroll) {
+                terminal.scrollTop = terminal.scrollHeight;
+            }
+        }
+
+        function filterLogsLocally() {
+            const searchVal = document.getElementById('searchInput').value.toLowerCase();
+            if (!searchVal) {
+                renderTerminalLogs(cachedLines);
+                return;
+            }
+            const filtered = cachedLines.filter(line => line.toLowerCase().includes(searchVal));
+            renderTerminalLogs(filtered);
+        }
+
+        function handleScroll() {
+            const terminal = document.getElementById('terminalBody');
+            const isAtBottom = terminal.scrollHeight - terminal.clientHeight - terminal.scrollTop < 40;
+            autoScroll = isAtBottom;
+            const statusEl = document.getElementById('autoScrollStatus');
+            if (autoScroll) {
+                statusEl.innerText = 'ACTIVE';
+                statusEl.className = 'text-success';
+            } else {
+                statusEl.innerText = 'PAUSED (Scrolled Up)';
+                statusEl.className = 'text-warning';
+            }
+        }
+
+        function toggleAutoRefresh() {
+            const isChecked = document.getElementById('autoRefreshToggle').checked;
+            document.getElementById('autoRefreshStatusText').innerText = isChecked ? 'ON' : 'OFF';
+            document.getElementById('autoRefreshStatusText').className = isChecked ? 'badge bg-success' : 'badge bg-secondary';
+
+            if (isChecked) {
+                startAutoRefresh();
+            } else {
+                stopAutoRefresh();
+            }
+        }
+
+        function startAutoRefresh() {
+            stopAutoRefresh();
+            autoRefreshInterval = setInterval(() => {
+                const activeTab = document.querySelector('#adminTabs .nav-link.active');
+                if (activeTab && activeTab.id === 'tab-logs-btn') {
+                    fetchPythonLogs();
+                    fetchSystemStatus();
+                }
+            }, 3000);
+        }
+
+        function stopAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+            }
+        }
+
+        function clearConsole() {
+            cachedLines = [];
+            renderTerminalLogs([]);
+        }
+
+        function downloadLogFile() {
+            if (!cachedLines || cachedLines.length === 0) return;
+            const blob = new Blob([cachedLines.join('\n')], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `python_dca_bot_${new Date().toISOString().slice(0, 10)}.log`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        // ============================================================
+        // Database Backup & Restore (JSON / SQLite)
+        // ============================================================
+
+        async function exportDatabaseJSON() {
+            try {
+                const token = '';
+                const response = await fetch('/api/admin/backup/export', {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || 'Gagal mengunduh backup');
+                }
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                const filename = `exbot_backup_${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.json`;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            } catch (err) {
+                alert('Export Gagal: ' + err.message);
+            }
+        }
+
+        async function downloadRawDatabaseFile() {
+            try {
+                const token = '';
+                const response = await fetch('/api/admin/backup/download-db', {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || 'Gagal mengunduh file database');
+                }
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `database_${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.sqlite`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            } catch (err) {
+                alert('Download DB Gagal: ' + err.message);
+            }
+        }
+
+        let loadedBackupData = null;
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            const btn = document.getElementById('btnExecuteImport');
+            const previewCard = document.getElementById('importPreviewCard');
+            const badgesContainer = document.getElementById('importSummaryBadges');
+            const dateSpan = document.getElementById('importFileDate');
+
+            if (!file) {
+                loadedBackupData = null;
+                btn.disabled = true;
+                previewCard.classList.add('d-none');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const json = JSON.parse(e.target.result);
+                    if (!json || !json.data) {
+                        throw new Error('Format file tidak memiliki objek "data"');
+                    }
+                    loadedBackupData = json;
+                    btn.disabled = false;
+                    previewCard.classList.remove('d-none');
+                    dateSpan.textContent = json.exported_at ? new Date(json.exported_at).toLocaleString('id-ID') : '-';
+
+                    const d = json.data;
+                    badgesContainer.innerHTML = [
+                        `<span class="badge bg-secondary">Users: ${d.users ? d.users.length : 0}</span>`,
+                        `<span class="badge bg-secondary">Accounts: ${d.accounts ? d.accounts.length : 0}</span>`,
+                        `<span class="badge bg-secondary">Bots: ${d.bots ? d.bots.length : 0}</span>`,
+                        `<span class="badge bg-secondary">Strategies: ${d.strategies ? d.strategies.length : 0}</span>`,
+                        `<span class="badge bg-secondary">Positions: ${d.positions ? d.positions.length : 0}</span>`,
+                        `<span class="badge bg-secondary">Orders: ${d.orders ? d.orders.length : 0}</span>`,
+                        `<span class="badge bg-secondary">Trades: ${d.trades ? d.trades.length : 0}</span>`
+                    ].join(' ');
+                } catch (err) {
+                    alert('File JSON tidak valid: ' + err.message);
+                    event.target.value = '';
+                    loadedBackupData = null;
+                    btn.disabled = true;
+                    previewCard.classList.add('d-none');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        async function submitImportJSON() {
+            if (!loadedBackupData) {
+                alert('Silakan pilih file JSON backup terlebih dahulu.');
+                return;
+            }
+
+            const mode = document.getElementById('importModeSelect').value;
+            const confirmMsg = mode === 'replace'
+                ? 'PERINGATAN! Mode "Replace Total" akan MENGHAPUS SEMUA DATA LAMA di database dan menggantinya dengan isi file backup ini.\n\nApakah Anda yakin?'
+                : 'Konfirmasi import database (Mode Merge / Upsert)?';
+
+            if (!confirm(confirmMsg)) return;
+
+            const btn = document.getElementById('btnExecuteImport');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Mengimport Data...';
+
+            try {
+                const token = '';
+                const response = await fetch('/api/admin/backup/import', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        backup_data: loadedBackupData,
+                        mode: mode
+                    })
+                });
+
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || 'Import gagal');
+                }
+
+                let summary = `Berhasil! ${result.message}\n\nRincian Data Dipulihkan:\n`;
+                if (result.counts) {
+                    for (const [table, count] of Object.entries(result.counts)) {
+                        summary += `- ${table}: ${count} record\n`;
+                    }
+                }
+                alert(summary);
+
+                // Reset file input
+                document.getElementById('importJsonFileInput').value = '';
+                document.getElementById('importPreviewCard').classList.add('d-none');
+                loadedBackupData = null;
+
+                // Refresh user list if tab is open
+                fetchUsers();
+            } catch (err) {
+                alert('Import Gagal: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-file-earmark-arrow-up-fill"></i> Jalankan Import Database';
+            }
+        }
+
+        function logout() {
+            fetch('/api/auth/logout', { method: 'POST' }).then(() => {
+                window.location.href = '/login';
+            });
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            const isAdmin = await checkAdminAuth();
+            if (isAdmin) {
+                await fetchUsers();
+                await fetchSystemStatus();
+                await fetchPythonLogs();
+                startAutoRefresh();
+            }
+        });
+    </script>
+</body>
+
+</html>
