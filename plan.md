@@ -54,6 +54,7 @@ Implementasi lokal yang sudah selesai:
 - [x] Login lockout persisten menahan username selama 15 menit setelah lima kegagalan dan tetap berlaku setelah restart.
 - [x] Default strategi Node/Python menggunakan kontrak JSON bersama; komponen legacy diberi status unsupported secara eksplisit.
 - [x] Recovery restart mengklasifikasikan mode posisi dari `dca_cycles.dry_run`, bukan hanya marker pseudo-order aktif; posisi dry-run tanpa TP sementara tidak lagi salah dianggap live.
+- [x] Chart Plotly memiliki overlay SMC opsional untuk swing HH/HL/LH/LL serta break BOS/CHoCH berbasis pivot dan candle close terkonfirmasi.
 
 Belum dapat/layak diselesaikan otomatis di workspace ini:
 
@@ -64,7 +65,7 @@ Belum dapat/layak diselesaikan otomatis di workspace ini:
 Validasi lokal terakhir pada 12 Agustus 2026:
 
 - Python: 55 test lulus.
-- Node unit: 9 test lulus.
+- Node unit: 10 test lulus.
 - Integration: 1 test lulus (auth, tenant isolation, restart session, liveness/readiness, serta alur Stop → Reset fail-closed).
 - Pemeriksaan sintaks Python/Node dan `docker compose config --quiet`: lulus.
 
