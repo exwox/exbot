@@ -114,6 +114,15 @@ class DryRunLedgerTest(unittest.TestCase):
         self.assertEqual(
             self.db.get_completed_dry_run_cycle_count('bot_dry'), 0)
 
+    def test_cycle_mode_identifies_dry_position_without_active_markers(self):
+        self.worker._execute_start_bot(100_000_000)
+        position = self.db.get_position('bot_dry')
+        position['tp_order_id'] = None
+        position['open_orders'] = []
+        self.db.save_position(position)
+
+        self.assertTrue(self.worker._is_simulated_position(position))
+
     def test_repairs_legacy_missing_tp_and_open_filled_base(self):
         self.worker._execute_start_bot(100_000_000)
         position = self.db.get_position('bot_dry')

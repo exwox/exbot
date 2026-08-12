@@ -57,7 +57,7 @@ API_CIRCUIT_COOLDOWN_SECONDS=120
 LIVE_TRADING_ENABLED=false
 LIVE_TRADING_CONFIRMATION=
 LIVE_TRADING_BOT_IDS=
-LIVE_MIN_DRY_RUN_CYCLES=3
+LIVE_MIN_DRY_RUN_CYCLES=1
 ```
 
 `MAX_ACCOUNT_EXPOSURE_IDR=0` disables the account-wide cap and is therefore not
@@ -84,7 +84,7 @@ Converting or starting a live bot requires all five conditions:
 3. `MAX_ACCOUNT_EXPOSURE_IDR` is a finite value greater than zero.
 4. The exact bot ID is present in comma-separated `LIVE_TRADING_BOT_IDS`.
 5. Its ledger contains at least `LIVE_MIN_DRY_RUN_CYCLES` completed dry-run
-   cycles (default: three).
+   cycles (pilot default: one).
 
 Keep the defaults (`false`, empty confirmation, and zero exposure) throughout
 development and dry-run validation. Stop the bot before changing its mode,
@@ -114,6 +114,31 @@ After a rollout or emergency stop, return `LIVE_TRADING_ENABLED=false`, clear
 the confirmation and allowlist, and restart XBot. Reopening live mode always
 requires the operator to set every gate again.
 
+Sebelum mengubah `dry_run`, jalankan preflight read-only untuk bot pilot:
+
+```bash
+npm run preflight:live -- --bot-id BOT_ID
+```
+
+Exit code `0` berarti gate environment, bukti dry-run, profil risiko, status
+account, posisi, dan order ledger siap untuk langkah operator berikutnya. Exit
+code `2` berarti rollout tetap diblokir; perbaiki seluruh `reasons` pada output
+JSON. Preflight tidak mengubah database, mode bot, atau mengirim request ke
+exchange. Pemeriksaan HTTPS/firewall, izin API tanpa withdrawal, pendanaan,
+dan backup off-host tetap wajib dilakukan operator secara terpisah.
+
+Audit ulang aritmetika setiap siklus dry-run terhadap trade ledger sebelum
+preflight. Angka `--require-closed` harus sama dengan gate rollout:
+
+```bash
+npm run audit:dry-run -- --bot-id BOT_ID --require-closed 1
+```
+
+Audit menghitung ulang modal beli, jumlah aset, nilai jual gross/net, fee, dan
+realized profit tanpa menulis database. Hanya siklus `TAKE_PROFIT` atau
+`STOP_LOSS` dengan exit trade yang dihitung sebagai bukti rollout; reset manual
+tetap dapat memiliki ledger yang konsisten tetapi tidak menambah evidence.
+
 On restart with an active position, the worker restores TP/SO children from the
 durable order ledger, including a terminal order committed immediately before
 a crash. It applies cumulative downtime fills first and only then cancels and
@@ -127,7 +152,10 @@ python3 scripts/migrate_credentials.py --dry-run
 python3 scripts/migrate_credentials.py
 ```
 
-The migration is transactional and idempotent. The application can read legacy Node CBC and Python Fernet values while new writes use AES-256-GCM.
+The migration is transactional and idempotent. The application can read v2,
+legacy Node CBC, and Python Fernet values while new writes use account-bound
+AES-256-GCM v3. Moving a v3 ciphertext to a different account ID makes
+authenticated decryption fail.
 
 ## Rollback
 

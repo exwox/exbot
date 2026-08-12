@@ -19,13 +19,9 @@ class AccountService:
     def create_account(self, name: str, api_key: str, api_secret: str,
                        exchange: str = "Indodax") -> Account:
         """Create a new account with encrypted credentials"""
-        account = Account(
-            name=name,
-            exchange=exchange,
-            api_key_encrypted=self.encryption.encrypt(api_key),
-            api_secret_encrypted=self.encryption.encrypt(api_secret),
-            is_active=True,
-        )
+        account = Account(name=name, exchange=exchange, is_active=True)
+        account.api_key_encrypted = self.encryption.encrypt(api_key, account.id)
+        account.api_secret_encrypted = self.encryption.encrypt(api_secret, account.id)
         self.db.add_account(account.to_dict())
         return account
 
@@ -41,9 +37,9 @@ class AccountService:
         if name is not None:
             account.name = name
         if api_key is not None:
-            account.api_key_encrypted = self.encryption.encrypt(api_key)
+            account.api_key_encrypted = self.encryption.encrypt(api_key, account_id)
         if api_secret is not None:
-            account.api_secret_encrypted = self.encryption.encrypt(api_secret)
+            account.api_secret_encrypted = self.encryption.encrypt(api_secret, account_id)
         if is_active is not None:
             account.is_active = is_active
 
@@ -77,8 +73,8 @@ class AccountService:
             return {'success': False, 'error': 'Account not found'}
 
         try:
-            api_key = self.encryption.decrypt(account.api_key_encrypted)
-            api_secret = self.encryption.decrypt(account.api_secret_encrypted)
+            api_key = self.encryption.decrypt(account.api_key_encrypted, account.id)
+            api_secret = self.encryption.decrypt(account.api_secret_encrypted, account.id)
         except Exception as e:
             return {'success': False, 'error': f'Decryption failed: {e}'}
 
@@ -109,8 +105,8 @@ class AccountService:
             return None
         try:
             return {
-                'api_key': self.encryption.decrypt(account.api_key_encrypted),
-                'api_secret': self.encryption.decrypt(account.api_secret_encrypted),
+                'api_key': self.encryption.decrypt(account.api_key_encrypted, account.id),
+                'api_secret': self.encryption.decrypt(account.api_secret_encrypted, account.id),
             }
         except Exception:
             return None

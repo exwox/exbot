@@ -11,6 +11,7 @@ from exchanges.indodax_client import IndodaxClient
 class FakeExchange:
     def __init__(self):
         self.orders = []
+        self.trade_history = []
         self.cancelled = []
         self.cancel_failures = set()
         self.next_tp = 2
@@ -43,6 +44,9 @@ class FakeExchange:
 
     def get_order_by_client_id(self, _pair, _client_order_id):
         return {'error': 'invalid client order id'}
+
+    def get_trade_history(self, _pair, limit=10):
+        return list(self.trade_history[:limit])
 
 
 class OrderNormalizationTest(unittest.TestCase):
@@ -199,6 +203,41 @@ class ReconciliationTest(unittest.TestCase):
         self.assertEqual(self.db.connection.execute(
             "SELECT status FROM alerts WHERE dedupe_key='order-cancel:bot_test'"
         ).fetchone()['status'], 'RESOLVED')
+
+    def test_legacy_intent_recovers_only_unique_trade_history_order(self):
+        intent_id = self.db.add_order({
+            'id': 'legacy_intent', 'bot_id': 'bot_test',
+            'account_id': 'account_test', 'position_id': 'position_test',
+            'order_type': 'so_1', 'side': 'buy', 'pair': 'btcidr',
+            'price': 9000, 'amount': 1, 'amount_quote': 9000,
+            'status': 'OPEN',
+        })
+        intent = next(order for order in self.db.get_bot_orders('bot_test')
+                      if order['id'] == intent_id)
+        self.client.trade_history = [{
+            'trade_id': 'trade-legacy', 'order_id': 'legacy-order-1',
+            'type': 'buy', 'price': '9000', 'amount': '0.4',
+        }]
+        self.client.orders = [{
+            'order_id': 'legacy-order-1', 'status': 'partially_filled',
+            'price': 9000, 'filled_amount': 0.4, 'filled_quote': 3600,
+        }]
+
+        recovered = self.worker._recover_order_intent(intent)
+
+        self.assertEqual(recovered['order_id'], 'legacy-order-1')
+        stored = next(order for order in self.db.get_bot_orders('bot_test')
+                      if order['id'] == intent_id)
+        self.assertEqual(stored['exchange_order_id'], 'legacy-order-1')
+        self.assertEqual(stored['status'], 'PARTIALLY_FILLED')
+
+        # More than one matching order remains a manual-recovery incident.
+        self.client.trade_history.append({
+            'trade_id': 'trade-other', 'order_id': 'legacy-order-2',
+            'type': 'buy', 'price': '9000', 'amount': '0.2',
+        })
+        self.assertIsNone(
+            self.worker._recover_legacy_order_from_trade_history(intent))
 
     def test_partial_and_final_fills_are_idempotent(self):
         self.client.orders = [

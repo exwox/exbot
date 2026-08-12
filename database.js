@@ -272,6 +272,14 @@ class Database {
             `);
             this.db.run('CREATE INDEX IF NOT EXISTS idx_auth_sessions_user ON auth_sessions(user_id)');
             this.db.run('CREATE INDEX IF NOT EXISTS idx_auth_sessions_expiry ON auth_sessions(expires_at)');
+            this.db.run(`
+                CREATE TABLE IF NOT EXISTS auth_login_failures (
+                    username TEXT PRIMARY KEY,
+                    failed_count INTEGER NOT NULL DEFAULT 0,
+                    locked_until TEXT,
+                    updated_at TEXT NOT NULL
+                )
+            `);
 
             this.db.run(`
                 CREATE TABLE IF NOT EXISTS dca_cycles (
@@ -403,12 +411,12 @@ class Database {
         this.db.run(`UPDATE strategies SET user_id = (SELECT id FROM users ORDER BY created_at ASC LIMIT 1) WHERE user_id IS NULL`);
     }
 
-    encrypt(text) {
-        return encryptCredential(text, this.encryptionKey);
+    encrypt(text, context = '') {
+        return encryptCredential(text, this.encryptionKey, context);
     }
 
-    decrypt(text) {
-        return decryptCredential(text, this.encryptionKey);
+    decrypt(text, context = '') {
+        return decryptCredential(text, this.encryptionKey, context);
     }
 
     // Account CRUD
@@ -1368,6 +1376,49 @@ class Database {
                     user.is_active ? 1 : 0, user.is_admin ? 1 : 0, user.expired_at || null,
                     user.updated_at, user.id
                 ],
+                function (err) {
+                    if (err) reject(err);
+                    else resolve(this.changes);
+                }
+            );
+        });
+    }
+
+    getLoginFailure(username) {
+        return new Promise((resolve, reject) => {
+            this.db.get(
+                'SELECT username, failed_count, locked_until, updated_at FROM auth_login_failures WHERE username=?',
+                [String(username).toLowerCase()],
+                (err, row) => err ? reject(err) : resolve(row || null)
+            );
+        });
+    }
+
+    recordLoginFailure(username, failedCount, lockedUntil = null) {
+        return new Promise((resolve, reject) => {
+            this.db.run(
+                `INSERT INTO auth_login_failures
+                    (username, failed_count, locked_until, updated_at)
+                 VALUES (?, ?, ?, ?)
+                 ON CONFLICT(username) DO UPDATE SET
+                    failed_count=excluded.failed_count,
+                    locked_until=excluded.locked_until,
+                    updated_at=excluded.updated_at`,
+                [String(username).toLowerCase(), Number(failedCount), lockedUntil,
+                    new Date().toISOString()],
+                function (err) {
+                    if (err) reject(err);
+                    else resolve(this.changes);
+                }
+            );
+        });
+    }
+
+    clearLoginFailures(username) {
+        return new Promise((resolve, reject) => {
+            this.db.run(
+                'DELETE FROM auth_login_failures WHERE username=?',
+                [String(username).toLowerCase()],
                 function (err) {
                     if (err) reject(err);
                     else resolve(this.changes);

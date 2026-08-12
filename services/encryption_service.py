@@ -41,28 +41,35 @@ class EncryptionService:
             maxmem=64 * 1024 * 1024,
         )
 
-    def encrypt(self, plaintext: str) -> str:
+    @staticmethod
+    def _aad(version: str, context: str = '') -> bytes:
+        suffix = f":{context}" if context else ''
+        return f"xbot-credential-{version}{suffix}".encode()
+
+    def encrypt(self, plaintext: str, context: str = '') -> str:
         """Encrypt plaintext string"""
         if not plaintext:
             return ""
         salt = os.urandom(16)
         nonce = os.urandom(12)
         key = self._derive_key(self.key_bytes, salt)
+        version = 'v3' if context else 'v2'
         encrypted_and_tag = AESGCM(key).encrypt(
-            nonce, plaintext.encode(), b"xbot-credential-v2"
-        )
+            nonce, plaintext.encode(), self._aad(version, context))
         ciphertext, tag = encrypted_and_tag[:-16], encrypted_and_tag[-16:]
-        return f"v2:{salt.hex()}:{nonce.hex()}:{tag.hex()}:{ciphertext.hex()}"
+        return f"{version}:{salt.hex()}:{nonce.hex()}:{tag.hex()}:{ciphertext.hex()}"
 
-    def decrypt(self, ciphertext: str) -> str:
+    def decrypt(self, ciphertext: str, context: str = '') -> str:
         """Decrypt ciphertext string"""
         if not ciphertext:
             return ""
-        if ciphertext.startswith('v2:'):
+        if ciphertext.startswith(('v2:', 'v3:')):
             try:
                 version, salt_hex, nonce_hex, tag_hex, encrypted_hex = ciphertext.split(':')
-                if version != 'v2':
+                if version not in ('v2', 'v3'):
                     raise ValueError('Unsupported credential version')
+                if version == 'v3' and not context:
+                    raise ValueError('Account context is required for v3 credential')
                 salt = bytes.fromhex(salt_hex)
                 nonce = bytes.fromhex(nonce_hex)
                 tag = bytes.fromhex(tag_hex)
@@ -71,7 +78,9 @@ class EncryptionService:
                     raise ValueError('Invalid v2 credential parameters')
                 key = self._derive_key(self.key_bytes, salt)
                 return AESGCM(key).decrypt(
-                    nonce, encrypted + tag, b"xbot-credential-v2"
+                    nonce, encrypted + tag,
+                    self._aad(version, context) if version == 'v3'
+                    else b"xbot-credential-v2"
                 ).decode()
             except (ValueError, UnicodeDecodeError, InvalidTag) as error:
                 raise ValueError("AES-GCM credential payload is invalid") from error

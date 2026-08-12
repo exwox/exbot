@@ -21,6 +21,7 @@ from exchanges.indodax_client import IndodaxClient
 from core.bot_worker import BotWorker
 from config.constants import BotStatus, AccountStatus
 from config.settings import live_trading_allowed_for
+from config.strategy_defaults import strategy_defaults
 
 
 class BotManager:
@@ -180,20 +181,7 @@ class BotManager:
                 return strategy
 
         # Return default strategy config
-        return {
-            'base_order_amount': 15000,
-            'safety_order_amount': 15000,
-            'max_safety_orders': 5,
-            'price_deviation': 1.2,
-            'deviation_scale': 1.5,
-            'step_scale_enabled': False,
-            'volume_scale': 1.5,
-            'take_profit_percent': 1.0,
-            'stop_loss_percent': 0.0,
-            'martingale_enabled': False,
-            'rsi_period': 14,
-            'rsi_oversold': 60,
-        }
+        return strategy_defaults()
 
     def start_bot(self, bot_id: str) -> bool:
         """Start a specific bot worker"""

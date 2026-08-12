@@ -16,22 +16,31 @@ function deriveKey(masterKey, salt) {
     return crypto.scryptSync(validateMasterKey(masterKey), salt, 32, SCRYPT_OPTIONS);
 }
 
-function encryptCredential(plaintext, masterKey) {
+function credentialAad(version, context = '') {
+    const suffix = context ? ':' + context : '';
+    return Buffer.from('xbot-credential-' + version + suffix, 'utf8');
+}
+
+function encryptCredential(plaintext, masterKey, context = '') {
+    const version = context ? 'v3' : V2_PREFIX;
     const salt = crypto.randomBytes(16);
     const nonce = crypto.randomBytes(12);
     const cipher = crypto.createCipheriv('aes-256-gcm', deriveKey(masterKey, salt), nonce);
-    cipher.setAAD(V2_AAD);
+    cipher.setAAD(credentialAad(version, context));
     const ciphertext = Buffer.concat([cipher.update(String(plaintext), 'utf8'), cipher.final()]);
     const tag = cipher.getAuthTag();
-    return [V2_PREFIX, salt.toString('hex'), nonce.toString('hex'), tag.toString('hex'), ciphertext.toString('hex')].join(':');
+    return [version, salt.toString('hex'), nonce.toString('hex'), tag.toString('hex'), ciphertext.toString('hex')].join(':');
 }
 
-function decryptV2(payload, masterKey) {
+function decryptAuthenticated(payload, masterKey, context = '') {
     const parts = String(payload).split(':');
-    if (parts.length !== 5 || parts[0] !== V2_PREFIX) {
-        throw new Error('Invalid v2 credential payload');
+    if (parts.length !== 5 || !['v2', 'v3'].includes(parts[0])) {
+        throw new Error('Invalid authenticated credential payload');
     }
-    const [, saltHex, nonceHex, tagHex, ciphertextHex] = parts;
+    const [version, saltHex, nonceHex, tagHex, ciphertextHex] = parts;
+    if (version === 'v3' && !context) {
+        throw new Error('Account context is required for v3 credential');
+    }
     const salt = Buffer.from(saltHex, 'hex');
     const nonce = Buffer.from(nonceHex, 'hex');
     const tag = Buffer.from(tagHex, 'hex');
@@ -40,7 +49,7 @@ function decryptV2(payload, masterKey) {
         throw new Error('Invalid v2 credential parameters');
     }
     const decipher = crypto.createDecipheriv('aes-256-gcm', deriveKey(masterKey, salt), nonce);
-    decipher.setAAD(V2_AAD);
+    decipher.setAAD(version === 'v2' ? V2_AAD : credentialAad(version, context));
     decipher.setAuthTag(tag);
     return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
 }
@@ -77,10 +86,12 @@ function decryptLegacyFernet(payload, masterKey) {
     return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8');
 }
 
-function decryptCredential(payload, masterKey) {
+function decryptCredential(payload, masterKey, context = '') {
     if (!payload) return '';
     validateMasterKey(masterKey);
-    if (String(payload).startsWith(`${V2_PREFIX}:`)) return decryptV2(payload, masterKey);
+    if (/^v[23]:/.test(String(payload))) {
+        return decryptAuthenticated(payload, masterKey, context);
+    }
     if (String(payload).split(':').length === 2) return decryptLegacyCbc(payload, masterKey);
     return decryptLegacyFernet(payload, masterKey);
 }

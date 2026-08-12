@@ -330,9 +330,26 @@ test('authentication is tenant-safe and survives a dashboard restart', async () 
     });
     assert.equal(crossSite.status, 403);
 
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+        await fetch(`${baseUrl}/api/auth/login`, {
+            method: 'POST', headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ username: 'locked-user', password: 'wrong-password' })
+        });
+    }
+    const lockedBeforeRestart = await (await fetch(`${baseUrl}/api/auth/login`, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ username: 'locked-user', password: 'wrong-password' })
+    })).json();
+    assert.equal(lockedBeforeRestart.locked, true);
+
     await stopServer();
     startServer();
     await waitForServer();
     const afterRestart = await fetch(`${baseUrl}/api/auth/me`, { headers: { cookie } });
     assert.equal((await afterRestart.json()).success, true);
+    const lockedAfterRestart = await (await fetch(`${baseUrl}/api/auth/login`, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ username: 'locked-user', password: 'wrong-password' })
+    })).json();
+    assert.equal(lockedAfterRestart.locked, true);
 });

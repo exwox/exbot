@@ -5,6 +5,7 @@ Hanya menentukan: BUY BASE, BUY SO, TAKE PROFIT, STOP LOSS, WAIT
 import math
 from typing import Optional
 from config.constants import OrderSide
+from config.strategy_defaults import DEFAULT_STRATEGY
 
 
 class DCADecision:
@@ -28,26 +29,27 @@ class StrategyEngine:
         """
         config: dictionary berisi parameter strategi
         """
-        self.base_order_amount = float(config.get('base_order_amount', 15000))
-        self.safety_order_amount = float(config.get('safety_order_amount', 15000))
-        self.max_safety_orders = int(config.get('max_safety_orders', 5))
+        values = {**DEFAULT_STRATEGY, **config}
+        self.base_order_amount = float(values['base_order_amount'])
+        self.safety_order_amount = float(values['safety_order_amount'])
+        self.max_safety_orders = int(values['max_safety_orders'])
         # Last-line protection in case legacy data or a direct DB update
         # bypasses the dashboard/API validation.
-        self.price_deviation = max(float(config.get('price_deviation', 1.2)), 0.01)
-        self.deviation_scale = float(config.get('deviation_scale', 1.5))
-        self.step_scale_enabled = bool(config.get('step_scale_enabled', False))
-        self.volume_scale = float(config.get('volume_scale', 1.5))
-        self.take_profit_percent = float(config.get('take_profit_percent', 1.0))
-        self.stop_loss_percent = float(config.get('stop_loss_percent', 0.0))
-        self.limit_buy_fee_percent = float(config.get('limit_buy_fee_percent', 0.15))
-        self.limit_sell_fee_percent = float(config.get('limit_sell_fee_percent', 0.15))
-        self.market_buy_fee_percent = float(config.get('market_buy_fee_percent', 0.30))
-        self.market_sell_fee_percent = float(config.get('market_sell_fee_percent', 0.30))
-        self.martingale_enabled = bool(config.get('martingale_enabled', False))
-        self.rsi_period = int(config.get('rsi_period', 14))
-        self.rsi_oversold = int(config.get('rsi_oversold', 60))
-        self.initial_entry_mode = str(config.get('initial_entry_mode', 'MARKET')).upper()
-        self.max_position_amount = float(config.get('max_position_amount', 0))
+        self.price_deviation = max(float(values['price_deviation']), 0.01)
+        self.deviation_scale = float(values['deviation_scale'])
+        self.step_scale_enabled = bool(values['step_scale_enabled'])
+        self.volume_scale = float(values['volume_scale'])
+        self.take_profit_percent = float(values['take_profit_percent'])
+        self.stop_loss_percent = float(values['stop_loss_percent'])
+        self.limit_buy_fee_percent = float(values['limit_buy_fee_percent'])
+        self.limit_sell_fee_percent = float(values['limit_sell_fee_percent'])
+        self.market_buy_fee_percent = float(values['market_buy_fee_percent'])
+        self.market_sell_fee_percent = float(values['market_sell_fee_percent'])
+        self.martingale_enabled = bool(values['martingale_enabled'])
+        self.rsi_period = int(values['rsi_period'])
+        self.rsi_oversold = int(values['rsi_oversold'])
+        self.initial_entry_mode = str(values['initial_entry_mode']).upper()
+        self.max_position_amount = float(values['max_position_amount'])
         self._validate()
 
     def _validate(self):

@@ -64,8 +64,8 @@ async function createAccount(userId, name, apiKey, apiSecret, exchange = 'Indoda
     await ensureInit();
 
     const accountId = `acc_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
-    const encryptedApiKey = db.encrypt(apiKey);
-    const encryptedApiSecret = db.encrypt(apiSecret);
+    const encryptedApiKey = db.encrypt(apiKey, accountId);
+    const encryptedApiSecret = db.encrypt(apiSecret, accountId);
 
     await db.addAccount({
         id: accountId,
@@ -92,10 +92,10 @@ async function updateAccount(id, updates) {
     }
 
     if (updates.api_key) {
-        account.api_key_encrypted = db.encrypt(updates.api_key);
+        account.api_key_encrypted = db.encrypt(updates.api_key, id);
     }
     if (updates.api_secret) {
-        account.api_secret_encrypted = db.encrypt(updates.api_secret);
+        account.api_secret_encrypted = db.encrypt(updates.api_secret, id);
     }
     if (updates.name) {
         account.name = updates.name;
@@ -144,8 +144,8 @@ async function getDecryptedCredentials(accountId) {
     let credentials;
     try {
         credentials = {
-            api_key: db.decrypt(account.api_key_encrypted),
-            api_secret: db.decrypt(account.api_secret_encrypted)
+            api_key: db.decrypt(account.api_key_encrypted, account.id),
+            api_secret: db.decrypt(account.api_secret_encrypted, account.id)
         };
     } catch (e) {
         console.error('[ACCOUNTS] Failed to decrypt credentials:', redactSensitive(e.message));

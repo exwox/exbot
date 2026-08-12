@@ -8,6 +8,7 @@ const { IndodaxClient } = require('./indodax-client');
 const crypto = require('crypto');
 const { runBacktest } = require('./backtest-engine');
 const { redactSensitive } = require('./log-redaction');
+const { strategyDefaults } = require('./strategy-defaults');
 const {
     liveTradingGate,
     liveTradingReadiness,
@@ -180,8 +181,8 @@ function publicAccount(account) {
         last_error: account.last_error || null,
         created_at: account.created_at,
         updated_at: account.updated_at,
-        api_key_masked: accounts.maskCredential(account.api_key_encrypted ? db.decrypt(account.api_key_encrypted) : ''),
-        api_secret_masked: accounts.maskCredential(account.api_secret_encrypted ? db.decrypt(account.api_secret_encrypted) : ''),
+        api_key_masked: accounts.maskCredential(account.api_key_encrypted ? db.decrypt(account.api_key_encrypted, account.id) : ''),
+        api_secret_masked: accounts.maskCredential(account.api_secret_encrypted ? db.decrypt(account.api_secret_encrypted, account.id) : ''),
     };
 }
 
@@ -569,14 +570,7 @@ router.post('/strategies', async (req, res) => {
         const strategy = {
             id: `strat_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
             user_id: req.user.id,
-            name: 'Default', base_order_amount: 15000, safety_order_amount: 15000,
-            max_safety_orders: 5, price_deviation: 1.2, deviation_scale: 1.5,
-            step_scale_enabled: false, volume_scale: 1.5, take_profit_percent: 1.0,
-            stop_loss_percent: 0, max_position_amount: 0, cooldown_seconds: 0,
-            martingale_enabled: false, rsi_period: 14, rsi_oversold: 60,
-            rsi_overbought: 70, limit_buy_fee_percent: 0.15,
-            limit_sell_fee_percent: 0.15, market_buy_fee_percent: 0.30,
-            market_sell_fee_percent: 0.30, initial_entry_mode: 'MARKET', enabled: true,
+            ...strategyDefaults(),
             ...values,
         };
 
@@ -1211,8 +1205,8 @@ async function cancellationClientForOwnedBot(userId, bot, hasTrackedOrders) {
         error.statusCode = 409;
         throw error;
     }
-    const apiKey = db.decrypt(account.api_key_encrypted);
-    const apiSecret = db.decrypt(account.api_secret_encrypted);
+    const apiKey = db.decrypt(account.api_key_encrypted, account.id);
+    const apiSecret = db.decrypt(account.api_secret_encrypted, account.id);
     if (!apiKey || !apiSecret) {
         const error = new Error(
             'Credential exchange tidak dapat didekripsi; state lokal dipertahankan untuk recovery.'

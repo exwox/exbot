@@ -17,11 +17,11 @@ function liveTradingGate(environment = process.env) {
     const exposureLimit = Number(environment.MAX_ACCOUNT_EXPOSURE_IDR);
     const exposureConfigured = Number.isFinite(exposureLimit) && exposureLimit > 0;
     const botIds = allowedBotIds(environment);
-    const configuredMinimum = Number(environment.LIVE_MIN_DRY_RUN_CYCLES ?? 3);
+    const configuredMinimum = Number(environment.LIVE_MIN_DRY_RUN_CYCLES ?? 1);
     const minimumDryRunCycles = Number.isInteger(configuredMinimum)
         && configuredMinimum >= 1 && configuredMinimum <= 100
         ? configuredMinimum
-        : 3;
+        : 1;
     const reasons = [];
     if (!enabled) reasons.push('LIVE_TRADING_ENABLED bukan true');
     if (!confirmed) reasons.push('konfirmasi risiko live belum valid');

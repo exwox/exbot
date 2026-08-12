@@ -60,9 +60,9 @@ class CredentialMigrationTest(unittest.TestCase):
         connection = sqlite3.connect(self.database)
         rows = connection.execute('SELECT id, api_key_encrypted, api_secret_encrypted FROM accounts ORDER BY id').fetchall()
         connection.close()
-        self.assertTrue(all(row[1].startswith('v2:') and row[2].startswith('v2:') for row in rows))
-        self.assertEqual(service.decrypt(rows[0][1]), 'cbc-key')
-        self.assertEqual(service.decrypt(rows[1][2]), 'fernet-secret')
+        self.assertTrue(all(row[1].startswith('v3:') and row[2].startswith('v3:') for row in rows))
+        self.assertEqual(service.decrypt(rows[0][1], rows[0][0]), 'cbc-key')
+        self.assertEqual(service.decrypt(rows[1][2], rows[1][0]), 'fernet-secret')
         self.assertEqual(migrate(self.database, key=self.key), 0)
 
 

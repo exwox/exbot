@@ -71,7 +71,7 @@ LIVE_TRADING_BOT_IDS = frozenset(
     if value.strip()
 )
 LIVE_MIN_DRY_RUN_CYCLES = min(
-    100, max(1, int(os.getenv('LIVE_MIN_DRY_RUN_CYCLES', '3'))))
+    100, max(1, int(os.getenv('LIVE_MIN_DRY_RUN_CYCLES', '1'))))
 
 
 def _planned_strategy_capital(strategy: dict | None) -> float:

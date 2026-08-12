@@ -1,4 +1,4 @@
-"""Migrate account credentials to the authenticated v2 AES-GCM format."""
+"""Migrate account credentials to account-bound v3 AES-GCM format."""
 import argparse
 import os
 import sqlite3
@@ -26,11 +26,11 @@ def migrate(database_path: str, dry_run: bool = False, key: str | None = None) -
             updates = []
             for column in ("api_key_encrypted", "api_secret_encrypted"):
                 payload = row[column] or ""
-                if not payload or payload.startswith("v2:"):
+                if not payload or payload.startswith("v3:"):
                     continue
                 plaintext = encryption.decrypt(payload)
-                replacement = encryption.encrypt(plaintext)
-                if encryption.decrypt(replacement) != plaintext:
+                replacement = encryption.encrypt(plaintext, row['id'])
+                if encryption.decrypt(replacement, row['id']) != plaintext:
                     raise RuntimeError(f"Round-trip verification failed for account {row['id']}")
                 updates.append((column, replacement))
             if updates:

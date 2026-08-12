@@ -3,7 +3,7 @@ Exbot DCA Bot - Multi-Account Version
 Entry point utama untuk sistem multi-account DCA bot
 
 Penggunaan:
-    python app.py          # Start dashboard + bot manager
+    python app.py          # Start Python Bot Manager saja
     python app.py --setup  # Initial setup (create tables, default strategy)
 """
 import os
@@ -104,7 +104,7 @@ def check_encryption_key():
     return True
 
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser(description='Exbot DCA Bot - Multi Account')
     parser.add_argument('--setup', action='store_true', help='Run initial database setup')
     parser.add_argument('--no-dashboard', action='store_true', help='Deprecated; Python always runs the bot manager only')
@@ -119,7 +119,7 @@ def main():
 
     # Check encryption key
     if not check_encryption_key():
-        return
+        return 1
 
     # Initialize database
     db = DatabaseManager(DATABASE_PATH)
@@ -127,7 +127,7 @@ def main():
     # Setup mode
     if args.setup:
         setup_database(db)
-        return
+        return 0
 
     # Normal mode: connect database and start bot manager
     try:
@@ -136,7 +136,7 @@ def main():
         logger.info("Database connected successfully")
     except Exception as e:
         logger.error(f"Failed to connect to database: {e}")
-        return
+        return 1
 
     # Initialize encryption
     try:
@@ -145,7 +145,7 @@ def main():
     except ValueError as e:
         logger.error(str(e))
         db.close()
-        return
+        return 1
 
     # Initialize account service
     account_service = AccountService(db, encryption)
@@ -190,6 +190,8 @@ def main():
         bot_manager.shutdown_all()
         db.close()
 
+    return 0
+
 
 if __name__ == '__main__':
-    main()
+    raise SystemExit(main())

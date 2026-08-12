@@ -2,12 +2,12 @@
 
 Dokumen ini adalah roadmap perbaikan XBot berdasarkan audit arsitektur, autentikasi, penyimpanan kredensial, deployment Docker, dan test suite. Target utama adalah memastikan bot aman dan stabil sebelum digunakan dalam mode live.
 
-## Status Eksekusi — 10 Agustus 2026
+## Status Eksekusi — 12 Agustus 2026
 
 Implementasi lokal yang sudah selesai:
 
 - [x] Backup database pra-perubahan dibuat dan lolos `PRAGMA quick_check`.
-- [x] Credential baru memakai AES-256-GCM v2 dengan salt/nonce acak dan kompatibilitas baca CBC/Fernet.
+- [x] Credential baru memakai AES-256-GCM v3 dengan salt/nonce acak dan AAD account-bound; pembacaan v2/CBC/Fernet tetap kompatibel.
 - [x] Migrasi credential transaksional, idempotent, dan mode dry-run tersedia.
 - [x] Dashboard `/` dan semua halaman private memerlukan autentikasi serta ownership user.
 - [x] Session dipindahkan dari memory/localStorage ke SQLite dan cookie HttpOnly.
@@ -35,7 +35,7 @@ Implementasi lokal yang sudah selesai:
 - [x] Alert operasional persisten dan terdeduplikasi tersedia untuk restart loop, kegagalan dekripsi, circuit exchange, dan mismatch rekonsiliasi; API baca/acknowledge dibatasi ownership tenant.
 - [x] Log file Python dan stdout container Node/Python memiliki batas ukuran serta retensi.
 - [x] Live trading memakai gate fail-closed lintas Node/Python: flag operator, frasa konfirmasi risiko, dan exposure cap nonzero wajib tersedia sebelum `dry_run=false` dapat dibuat atau dijalankan.
-- [x] Rollout live dibatasi allowlist bot eksplisit dan bukti minimal tiga siklus dry-run `CLOSED`; readiness bot tetap tenant-scoped.
+- [x] Rollout live dibatasi allowlist bot eksplisit dan bukti minimal satu siklus dry-run `CLOSED` TP/SL untuk pilot; readiness bot tetap tenant-scoped.
 - [x] Dependency native `sqlite3` dikompilasi di dalam image dan diuji saat build agar binary host/GLIBC yang tidak kompatibel tidak memicu restart loop.
 - [x] Ledger dry-run menyimpan BO/SO/TP dengan status lifecycle yang konsisten dan memperbaiki otomatis pseudo-order legacy saat restart.
 - [x] Test Node, Python, encryption bridge, migration, auth restart, tenant isolation, dan CSRF lulus.
@@ -47,6 +47,13 @@ Implementasi lokal yang sudah selesai:
 - [x] Operator menyetujui profil risiko pilot: stop-loss 8%, modal posisi maksimum Rp90.000, exposure akun Rp100.000, dan anggaran rugi operasional Rp10.000 per siklus; gate live tetap ditutup sampai rollout terpenuhi.
 - [x] Readiness hanya menghitung dry-run yang ditutup TP/SL dengan exit nyata; reset manual tidak dihitung. Gate Node/Python juga menolak stop-loss nol dan batas posisi/exposure di bawah modal siklus.
 - [x] Tool `scripts/set_bot_risk.py` menyediakan preview/apply fail-closed dan hanya mengubah strategi bot dry-run jika batas posisi menutup seluruh modal siklus.
+- [x] Command resmi test Python memilih virtual environment proyek secara otomatis, sehingga tidak bergantung pada dependency interpreter sistem.
+- [x] Fallback order legacy tanpa exchange/client ID mencari kandidat unik dari trade history dan tetap memverifikasi status lewat `getOrder`; kecocokan lemah atau ambigu ditolak fail-closed.
+- [x] Preflight rollout live read-only memeriksa gate environment, bukti dry-run, profil risiko, status account/bot, posisi aktif, dan order recoverable tanpa mengubah mode atau mengirim order.
+- [x] Audit dry-run read-only menghitung ulang invested amount, inventory, hasil jual gross/net, fee, dan realized profit dari trade ledger; reset manual tidak dihitung sebagai bukti rollout.
+- [x] Login lockout persisten menahan username selama 15 menit setelah lima kegagalan dan tetap berlaku setelah restart.
+- [x] Default strategi Node/Python menggunakan kontrak JSON bersama; komponen legacy diberi status unsupported secara eksplisit.
+- [x] Recovery restart mengklasifikasikan mode posisi dari `dca_cycles.dry_run`, bukan hanya marker pseudo-order aktif; posisi dry-run tanpa TP sementara tidak lagi salah dianggap live.
 
 Belum dapat/layak diselesaikan otomatis di workspace ini:
 
@@ -54,15 +61,24 @@ Belum dapat/layak diselesaikan otomatis di workspace ini:
 - [ ] HTTPS reverse proxy, firewall, alerting eksternal, backup off-host, dan live rollout memerlukan akses VPS/operator.
 - [ ] Live trading tetap dilarang sampai checklist Fase 8 dijalankan oleh operator.
 
-Validasi terakhir pada 10 Agustus 2026:
+Validasi lokal terakhir pada 12 Agustus 2026:
 
-- Python: 49 test lulus.
-- Node unit: 7 test lulus.
+- Python: 55 test lulus.
+- Node unit: 9 test lulus.
 - Integration: 1 test lulus (auth, tenant isolation, restart session, liveness/readiness, serta alur Stop → Reset fail-closed).
-- `npm audit`: 0 vulnerability.
 - Pemeriksaan sintaks Python/Node dan `docker compose config --quiet`: lulus.
+
+Validasi deployment/operator terakhir pada 10 Agustus 2026:
+
+- `npm audit`: 0 vulnerability.
 - Build image `xbot:1.0.0`, startup container, `/healthz`, dan `/readyz`: lulus melalui eksekusi operator.
 - Restart saat satu posisi dry-run terbuka: lulus; rekonsiliasi menghasilkan tepat satu posisi, satu siklus, lima SO aktif, dan satu TP aktif.
+
+Validasi container terbaru pada 12 Agustus 2026:
+
+- Image `xbot:1.0.0` dibangun ulang dari workspace terbaru dan container direcreate dengan bind mount database yang sama.
+- `/healthz` dan `/readyz` mengembalikan HTTP 200; Node, SQLite, dan Python Bot Manager siap.
+- Posisi dry-run Rp90.000 dan siklus terbuka dipertahankan; startup membangun ulang tepat satu TP pseudo-order tanpa alert terbuka.
 
 ## Tujuan
 
@@ -87,12 +103,12 @@ Prioritas: P0
 
 ### Pekerjaan
 
-- [ ] Dokumentasikan command resmi untuk development, test, setup database, dan production.
-- [ ] Catat versi Node.js, Python, SQLite, dan dependency yang digunakan Docker.
+- [x] Dokumentasikan command resmi untuk development, test, setup database, dan production.
+- [x] Catat versi Node.js, Python, SQLite, dan dependency yang digunakan Docker.
 - [ ] Buat backup terenkripsi untuk `data/dca_bot.db` dan simpan salinan `.env` di lokasi aman.
-- [ ] Identifikasi akun dan bot yang sedang berstatus `RUNNING`.
-- [ ] Pastikan semua bot berada dalam mode dry-run selama proses perbaikan.
-- [ ] Tambahkan checklist rollback untuk perubahan database dan enkripsi.
+- [x] Identifikasi akun dan bot yang sedang berstatus `RUNNING`.
+- [x] Pastikan semua bot berada dalam mode dry-run selama proses perbaikan.
+- [x] Tambahkan checklist rollback untuk perubahan database dan enkripsi.
 
 ### Kriteria selesai
 
@@ -110,13 +126,13 @@ Masalah: dokumentasi menghasilkan key hex, sedangkan Python mengharapkan key Fer
 
 ### Pekerjaan
 
-- [ ] Tentukan satu format key utama untuk Node dan Python.
-- [ ] Rekomendasi: terima secret acak sebagai master key, lalu derivasi key AES-GCM secara identik di kedua runtime.
-- [ ] Tambahkan validasi key saat startup Node dan Python.
-- [ ] Hentikan startup dengan pesan yang jelas apabila key kosong atau tidak valid.
-- [ ] Perbarui `.env.example`, README, `setup-db.js`, dan pesan bantuan pada Python.
-- [ ] Tambahkan integration test yang mengenkripsi di Node lalu mendekripsi di Python, serta arah sebaliknya.
-- [ ] Pertahankan pembacaan format legacy selama masa migrasi.
+- [x] Tentukan satu format key utama untuk Node dan Python.
+- [x] Terima secret acak sebagai master key, lalu derivasi key AES-GCM secara identik di kedua runtime.
+- [x] Tambahkan validasi key saat startup Node dan Python.
+- [x] Hentikan startup dengan pesan yang jelas dan exit nonzero apabila key kosong atau tidak valid.
+- [x] Perbarui `.env.example`, README, command setup resmi, dan pesan bantuan pada Python.
+- [x] Tambahkan integration test yang mengenkripsi di Node lalu mendekripsi di Python, serta arah sebaliknya.
+- [x] Pertahankan pembacaan format legacy selama masa migrasi.
 
 ### Kriteria selesai
 
@@ -130,12 +146,12 @@ Masalah: route `/` tidak memeriksa user dan menggunakan akun aktif global pertam
 
 ### Pekerjaan
 
-- [ ] Redirect request tanpa session dari `/` ke `/login`.
-- [ ] Ganti `getActiveAccounts()` dengan query akun milik `req.user.id`.
-- [ ] Pastikan semua data dashboard berasal dari bot/account milik user aktif.
-- [ ] Jangan melakukan request private Indodax sebelum autentikasi dan ownership berhasil.
-- [ ] Audit seluruh route HTML dan API dengan matriks autentikasi serta ownership.
-- [ ] Tambahkan test untuk akses anonymous dan akses lintas-user.
+- [x] Redirect request tanpa session dari `/` ke `/login`.
+- [x] Ganti pemilihan akun dashboard dengan query akun milik `req.user.id`.
+- [x] Pastikan semua data dashboard berasal dari bot/account milik user aktif.
+- [x] Jangan melakukan request private Indodax sebelum autentikasi dan ownership berhasil.
+- [x] Audit seluruh route HTML dan API dengan matriks autentikasi serta ownership.
+- [x] Tambahkan test untuk akses anonymous dan akses lintas-user.
 
 ### Kriteria selesai
 
@@ -149,15 +165,15 @@ Prioritas: P1
 
 ### Pekerjaan
 
-- [ ] Ganti AES-256-CBC menjadi AES-256-GCM atau ChaCha20-Poly1305.
-- [ ] Gunakan nonce acak untuk setiap ciphertext.
-- [ ] Gunakan KDF dengan salt acak dan parameter yang terdokumentasi.
-- [ ] Buat format payload berversi, misalnya `v2:<salt>:<nonce>:<ciphertext>:<tag>`.
-- [ ] Gunakan account ID sebagai associated data bila memungkinkan.
-- [ ] Buat migrasi idempotent dari Fernet dan AES-CBC legacy ke format baru.
-- [ ] Migrasikan per record dan verifikasi hasil dekripsi sebelum mengganti nilai lama.
-- [ ] Jangan mencetak API key, secret, plaintext, atau encryption key ke log.
-- [ ] Pastikan endpoint status hanya mengirim API key yang sudah dimasking jika memang diperlukan UI.
+- [x] Ganti AES-256-CBC menjadi AES-256-GCM.
+- [x] Gunakan nonce acak untuk setiap ciphertext.
+- [x] Gunakan KDF dengan salt acak dan parameter yang terdokumentasi.
+- [x] Buat format payload v3 berversi.
+- [x] Gunakan account ID sebagai associated data.
+- [x] Buat migrasi idempotent dari v2, Fernet, dan AES-CBC legacy ke format baru.
+- [x] Migrasikan per record dan verifikasi hasil dekripsi sebelum mengganti nilai lama.
+- [x] Jangan mencetak API key, secret, plaintext, atau encryption key ke log.
+- [x] Pastikan endpoint status hanya mengirim API key yang sudah dimasking jika memang diperlukan UI.
 
 ### Strategi migrasi
 
@@ -181,19 +197,19 @@ Prioritas: P1
 
 ### Pekerjaan
 
-- [ ] Ganti password hashing dengan Argon2id, atau naikkan parameter PBKDF2 sesuai baseline keamanan terkini.
-- [ ] Tambahkan migrasi hash saat user berhasil login.
-- [ ] Naikkan syarat minimum password dan dukung passphrase panjang.
-- [ ] Gunakan perbandingan hash constant-time.
-- [ ] Tambahkan rate limiting untuk login, register, test credential, backup, dan endpoint trading.
-- [ ] Tambahkan lockout/backoff sementara setelah kegagalan login berulang.
-- [ ] Pindahkan session dari `Map` ke penyimpanan persisten atau gunakan secure server-side session store.
-- [ ] Hentikan penerimaan session token melalui query string.
-- [ ] Utamakan cookie `HttpOnly`, `Secure`, dan `SameSite=Strict`; jika tetap menggunakan bearer token, terima hanya melalui header.
-- [ ] Rotasi session saat login dan perubahan password.
-- [ ] Revoke seluruh session user ketika akun dinonaktifkan atau password diganti.
-- [ ] Tambahkan CSRF protection jika autentikasi memakai cookie.
-- [ ] Tambahkan security headers, batas ukuran body, dan konfigurasi proxy yang eksplisit.
+- [x] Ganti password baru ke scrypt dan pertahankan verifikasi PBKDF2 legacy untuk upgrade saat login.
+- [x] Tambahkan migrasi hash saat user berhasil login.
+- [x] Naikkan syarat minimum password dan dukung passphrase panjang.
+- [x] Gunakan perbandingan hash constant-time.
+- [x] Tambahkan rate limiting untuk login, register, dan seluruh mutation endpoint termasuk credential, backup, dan trading.
+- [x] Tambahkan lockout sementara persisten setelah kegagalan login berulang.
+- [x] Pindahkan session dari `Map` ke penyimpanan persisten SQLite.
+- [x] Hentikan penerimaan session token melalui query string.
+- [x] Gunakan cookie `HttpOnly`, `Secure` saat HTTPS, dan `SameSite=Strict`; bearer hanya diterima melalui header.
+- [x] Rotasi session saat login dan perubahan password.
+- [x] Revoke seluruh session user ketika akun dinonaktifkan atau password diganti.
+- [x] Tambahkan CSRF/origin protection untuk autentikasi cookie.
+- [x] Tambahkan security headers, batas ukuran body, dan konfigurasi proxy yang eksplisit.
 - [ ] Wajibkan HTTPS pada deployment publik.
 
 ### Kriteria selesai
@@ -209,15 +225,15 @@ Prioritas: P1
 
 ### Pekerjaan
 
-- [ ] Tetapkan arsitektur resmi: Node sebagai dashboard/API dan Python sebagai Bot Manager.
-- [ ] Tetapkan `docker-entrypoint.sh` sebagai entry point production resmi.
-- [ ] Putuskan status `dca_bot.py`, `indodax_client.py`, file Flask backup, dan konfigurasi legacy.
+- [x] Tetapkan arsitektur resmi: Node sebagai dashboard/API dan Python sebagai Bot Manager.
+- [x] Tetapkan `docker-entrypoint.sh` sebagai entry point production resmi.
+- [x] Putuskan status `dca_bot.py`, `indodax_client.py`, file Flask backup, dan konfigurasi legacy dalam `LEGACY.md`.
 - [ ] Pindahkan komponen legacy ke direktori arsip atau hapus setelah dipastikan tidak digunakan.
-- [ ] Perbaiki `python app.py` agar tidak mengimpor modul dashboard yang tidak tersedia, atau hapus klaim bahwa command tersebut menjalankan dashboard.
-- [ ] Satukan seluruh default strategy, fee, RSI, dan dry-run pada satu sumber konfigurasi/schema.
-- [ ] Tetapkan default baru `dry_run=true` untuk semua bot dan instalasi baru.
-- [ ] Tambahkan validasi nilai strategy: nilai positif, batas jumlah SO, modal maksimum, fee, TP/SL, dan initial entry mode.
-- [ ] Dokumentasikan sumber kebenaran untuk status bot dan posisi, yaitu SQLite.
+- [x] Perbaiki `python app.py` agar hanya mengklaim menjalankan Python Bot Manager.
+- [x] Satukan seluruh default strategy, fee, RSI, dan dry-run pada `config/strategy_defaults.json`.
+- [x] Tetapkan default baru `dry_run=true` untuk semua bot dan instalasi baru.
+- [x] Tambahkan validasi nilai strategy: nilai positif, batas jumlah SO, modal maksimum, fee, TP/SL, dan initial entry mode.
+- [x] Dokumentasikan sumber kebenaran untuk status bot dan posisi, yaitu SQLite.
 
 ### Kriteria selesai
 
@@ -233,7 +249,7 @@ Prioritas: P1 sebelum live, P2 untuk peningkatan lanjutan.
 ### Pekerjaan
 
 - [x] Tambahkan idempotency pada pembuatan base order, SO, TP, dan SL.
-- [ ] Rekonsiliasi tracked order/client ID saat startup sudah otomatis; fallback trade-history untuk order lama tanpa ID masih memerlukan validasi sandbox.
+- [ ] Rekonsiliasi tracked order/client ID saat startup sudah otomatis; fallback trade-history fail-closed untuk order lama tanpa ID sudah lulus mocked test, tetapi masih memerlukan validasi sandbox.
 - [x] Bedakan status order `REQUESTED`, `SUBMISSION_UNKNOWN`, `OPEN`, `PARTIALLY_FILLED`, `FILLED`, `CANCELLED`, dan `FAILED`; `PENDING` hanya kompatibilitas legacy.
 - [x] Tangani partial fill untuk base order, SO, TP, dan market sell.
 - [x] Pastikan kegagalan menyimpan database setelah order exchange berhasil tidak menghasilkan order duplikat.
@@ -304,7 +320,7 @@ Prioritas: dilakukan hanya setelah Fase 1–6 selesai.
 
 ### Tahapan rollout
 
-- [ ] Jalankan seluruh bot dalam dry-run minimal beberapa siklus lengkap.
+- [ ] Jalankan bot pilot dalam dry-run minimal satu siklus lengkap TP/SL.
 - [ ] Bandingkan hasil simulasi dengan data pasar dan perhitungan manual.
 - [ ] Jalankan satu akun uji dengan nominal minimum dan satu pair.
 - [ ] Aktifkan batas exposure dan circuit breaker.

@@ -372,9 +372,11 @@ class BotWorker:
         exchange_order_id = str(intent.get('exchange_order_id') or '')
         if exchange_order_id:
             remote = self.client.get_order_status(self.pair, exchange_order_id)
-        else:
+        elif intent.get('client_order_id'):
             remote = self.client.get_order_by_client_id(
                 self.pair, intent.get('client_order_id', ''))
+        else:
+            remote = self._recover_legacy_order_from_trade_history(intent)
         if not isinstance(remote, dict) or remote.get('error'):
             return None
         recovered_id = str(remote.get('order_id') or exchange_order_id)
@@ -382,6 +384,54 @@ class BotWorker:
             self.db.update_order_submission(
                 intent['id'], recovered_id,
                 str(remote.get('status', 'OPEN')).upper())
+        return remote
+
+    def _recover_legacy_order_from_trade_history(
+            self, intent: dict) -> Optional[dict]:
+        """Find one legacy order ID, then verify it through getOrder.
+
+        Trade history is only an identifier-discovery fallback for records
+        created before durable exchange/client IDs existed. It never infers a
+        terminal status and refuses ambiguous matches.
+        """
+        history = self.client.get_trade_history(self.pair, limit=100)
+        if not isinstance(history, list):
+            return None
+
+        expected_side = str(intent.get('side') or '').lower()
+        expected_price = float(intent.get('price') or 0)
+        expected_amount = float(intent.get('amount') or 0)
+        # Side-only matching could attach an unrelated account trade. Legacy
+        # market intents without a price/quantity fingerprint remain manual.
+        if not expected_side or expected_price <= 0 or expected_amount <= 0:
+            return None
+        candidate_ids = set()
+        for trade in history:
+            if not isinstance(trade, dict):
+                continue
+            order_id = str(trade.get('order_id') or '')
+            side = str(trade.get('type') or trade.get('side') or '').lower()
+            if not order_id or side != expected_side:
+                continue
+            price = float(trade.get('price') or 0)
+            amount = float(
+                trade.get('amount') or trade.get('amount_crypto') or 0)
+            if expected_price > 0 and (
+                    price <= 0 or
+                    abs(price - expected_price) / expected_price > 0.005):
+                continue
+            if expected_amount > 0 and (
+                    amount <= 0 or amount > expected_amount * 1.000001):
+                continue
+            candidate_ids.add(order_id)
+
+        if len(candidate_ids) != 1:
+            return None
+        order_id = next(iter(candidate_ids))
+        remote = self.client.get_order_status(self.pair, order_id)
+        if not isinstance(remote, dict) or remote.get('error'):
+            return None
+        remote.setdefault('order_id', order_id)
         return remote
 
     def _run_loop(self):
@@ -525,9 +575,11 @@ class BotWorker:
         # Execute decision
         self._execute_decision(decision, state, current_price)
 
-    @staticmethod
-    def _is_simulated_position(position: dict) -> bool:
-        """Dry-run orders are deliberately marked and never sent to exchange."""
+    def _is_simulated_position(self, position: dict) -> bool:
+        """Use the durable cycle mode before legacy pseudo-order markers."""
+        cycle = self.db.get_cycle(str(position.get('id') or ''))
+        if cycle is not None:
+            return bool(cycle.get('dry_run'))
         if str(position.get('tp_order_id') or '').startswith('DRY_'):
             return True
         return any(str(order.get('order_id') or '').startswith('DRY_')
@@ -803,11 +855,7 @@ class BotWorker:
                       level="ERROR")
             return
         exchange_order_id = str(intent.get('exchange_order_id') or '')
-        if exchange_order_id:
-            status = self.client.get_order_status(self.pair, exchange_order_id)
-        else:
-            status = self.client.get_order_by_client_id(
-                self.pair, intent.get('client_order_id', ''))
+        status = self._recover_order_intent(intent)
         if isinstance(status, dict) and not status.get('error'):
             recovered_id = str(status.get('order_id') or exchange_order_id)
             if recovered_id:

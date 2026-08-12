@@ -5,6 +5,8 @@ const crypto = require('crypto');
 const db = new Database();
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const SCRYPT_OPTIONS = { N: 32768, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
+const LOGIN_FAILURE_LIMIT = 5;
+const LOGIN_LOCK_MS = 15 * 60 * 1000;
 let initialized = false;
 
 async function ensureInit() {
@@ -78,12 +80,30 @@ async function register(username, password, email) {
 
 async function login(username, password) {
     await ensureInit();
-    const user = await db.getUserByUsername(String(username || '').trim());
+    const normalizedUsername = String(username || '').trim();
+    const failure = await db.getLoginFailure(normalizedUsername);
+    const lockedUntil = failure?.locked_until
+        ? new Date(failure.locked_until).getTime() : 0;
+    if (lockedUntil > Date.now()) {
+        return {
+            success: false,
+            error: 'Terlalu banyak kegagalan login. Coba lagi setelah masa lockout.',
+            locked: true,
+            retry_after_seconds: Math.max(Math.ceil((lockedUntil - Date.now()) / 1000), 1)
+        };
+    }
+    const user = await db.getUserByUsername(normalizedUsername);
     if (!user || !verifyPassword(String(password || ''), user)) {
+        const failedCount = (Number(failure?.failed_count) || 0) + 1;
+        const newLockedUntil = failedCount >= LOGIN_FAILURE_LIMIT
+            ? new Date(Date.now() + LOGIN_LOCK_MS).toISOString() : null;
+        await db.recordLoginFailure(normalizedUsername, failedCount, newLockedUntil);
         return { success: false, error: 'Invalid username or password' };
     }
     if (!user.is_active) return { success: false, error: 'Akun nonaktif atau menunggu aktivasi admin.' };
     if (userIsExpired(user)) return { success: false, error: 'Masa aktif akun telah berakhir.' };
+
+    await db.clearLoginFailures(normalizedUsername);
 
     if (!String(user.password_hash).startsWith('scrypt$')) {
         Object.assign(user, hashPassword(password));

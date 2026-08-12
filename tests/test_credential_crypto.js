@@ -21,3 +21,11 @@ test('legacy Node CBC credentials remain readable', () => {
     const payload = `${iv.toString('hex')}:${ciphertext.toString('hex')}`;
     assert.equal(decryptCredential(payload, key), 'legacy-secret');
 });
+
+test('v3 credentials are bound to their account context', () => {
+    const payload = encryptCredential('account-secret', key, 'account-a');
+    assert.match(payload, /^v3:/);
+    assert.equal(decryptCredential(payload, key, 'account-a'), 'account-secret');
+    assert.throws(() => decryptCredential(payload, key, 'account-b'));
+    assert.throws(() => decryptCredential(payload, key));
+});

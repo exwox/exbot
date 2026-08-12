@@ -11,6 +11,7 @@ test('live trading policy fails closed unless every operator gate is set', () =>
     const disabled = liveTradingGate({});
     assert.equal(disabled.allowed, false);
     assert.equal(disabled.exposure_limit_idr, 0);
+    assert.equal(disabled.minimum_dry_run_cycles, 1);
     assert.throws(
         () => requireLiveTrading('bot_a', 0, {
             LIVE_TRADING_ENABLED: 'true',

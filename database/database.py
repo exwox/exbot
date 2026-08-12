@@ -1075,6 +1075,12 @@ class DatabaseManager:
         """, (bot_id, limit))
         return [dict(row) for row in cursor.fetchall()]
 
+    def get_cycle(self, cycle_id: str) -> Optional[dict]:
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT * FROM dca_cycles WHERE id=?", (str(cycle_id),))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
     def get_bot_cycle_stats(self, bot_id: str) -> dict:
         cursor = self.connection.cursor()
         cursor.execute("""

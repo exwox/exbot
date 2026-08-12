@@ -11,6 +11,7 @@ const path = require('path');
 const http = require('http');
 const { redactSensitive, safeMetadata } = require('./log-redaction');
 const { requireLiveTrading } = require('./live-trading-policy');
+const { DEFAULT_STRATEGY } = require('./strategy-defaults');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -110,9 +111,7 @@ app.post('/logout', async (req, res) => {
     res.redirect('/login');
 });
 
-// Secondary dashboard pages are client-authenticated (the session token is
-// stored in localStorage), so serve their shell and let their scoped API calls
-// load the user's data.  These routes previously caused a 404 from the menu.
+// Secondary dashboard pages require the server-side HttpOnly cookie session.
 for (const page of ['trades', 'logs', 'settings', 'backtest', 'admin']) {
     app.get(`/${page}`, (req, res) => {
         if (!req.user) return res.redirect('/login');
@@ -157,11 +156,20 @@ async function loadConfig(userId = null) {
 
     if (activeAccounts.length === 0) {
         return {
-            TRADING_PAIR: 'btcidr', BASE_ORDER_IDR: 15000, SAFETY_ORDER_IDR: 15000,
-            MAX_SAFETY_ORDERS: 5, SAFETY_ORDER_DISTANCE: 1.2, TAKE_PROFIT_PERCENT: 1.0,
-            STOP_LOSS_PERCENT: 0, MARTINGALE_ENABLED: false, VOLUME_SCALE: 1.5,
-            STEP_SCALE: 1.5, DCA_INTERVAL_HOURS: 24, DCA_AMOUNT_IDR: 10000,
-            RSI_PERIOD: 14, RSI_OVERSOLD: 60, RSI_OVERBOUGHT: 70, DRY_RUN: true,
+            TRADING_PAIR: 'btcidr', BASE_ORDER_IDR: DEFAULT_STRATEGY.base_order_amount,
+            SAFETY_ORDER_IDR: DEFAULT_STRATEGY.safety_order_amount,
+            MAX_SAFETY_ORDERS: DEFAULT_STRATEGY.max_safety_orders,
+            SAFETY_ORDER_DISTANCE: DEFAULT_STRATEGY.price_deviation,
+            TAKE_PROFIT_PERCENT: DEFAULT_STRATEGY.take_profit_percent,
+            STOP_LOSS_PERCENT: DEFAULT_STRATEGY.stop_loss_percent,
+            MARTINGALE_ENABLED: DEFAULT_STRATEGY.martingale_enabled,
+            VOLUME_SCALE: DEFAULT_STRATEGY.volume_scale,
+            STEP_SCALE: DEFAULT_STRATEGY.deviation_scale,
+            DCA_INTERVAL_HOURS: 24, DCA_AMOUNT_IDR: 10000,
+            RSI_PERIOD: DEFAULT_STRATEGY.rsi_period,
+            RSI_OVERSOLD: DEFAULT_STRATEGY.rsi_oversold,
+            RSI_OVERBOUGHT: DEFAULT_STRATEGY.rsi_overbought,
+            DRY_RUN: DEFAULT_STRATEGY.dry_run,
             LOG_FILE: 'dca_bot.log', DATA_FILE: 'dca_data.json'
         };
     }
@@ -188,24 +196,24 @@ async function loadConfig(userId = null) {
         INDODAX_API_KEY: creds?.api_key || '',
         INDODAX_SECRET_KEY: creds?.api_secret || '',
         TRADING_PAIR: bot?.pair || 'btcidr',
-        BASE_ORDER_IDR: strategy?.base_order_amount || 15000,
-        SAFETY_ORDER_IDR: strategy?.safety_order_amount || 15000,
-        MAX_SAFETY_ORDERS: strategy?.max_safety_orders || 5,
-        SAFETY_ORDER_DISTANCE: strategy?.price_deviation || 1.2,
-        TAKE_PROFIT_PERCENT: strategy?.take_profit_percent || 1.0,
-        STOP_LOSS_PERCENT: strategy?.stop_loss_percent || 0.0,
-        LIMIT_BUY_FEE_PERCENT: strategy?.limit_buy_fee_percent ?? 0.15,
-        LIMIT_SELL_FEE_PERCENT: strategy?.limit_sell_fee_percent ?? 0.15,
-        MARKET_BUY_FEE_PERCENT: strategy?.market_buy_fee_percent ?? 0.30,
-        MARKET_SELL_FEE_PERCENT: strategy?.market_sell_fee_percent ?? 0.30,
-        MARTINGALE_ENABLED: strategy?.martingale_enabled || false,
-        VOLUME_SCALE: strategy?.volume_scale || 1.5,
-        STEP_SCALE: strategy?.deviation_scale || 1.5,
+        BASE_ORDER_IDR: strategy?.base_order_amount ?? DEFAULT_STRATEGY.base_order_amount,
+        SAFETY_ORDER_IDR: strategy?.safety_order_amount ?? DEFAULT_STRATEGY.safety_order_amount,
+        MAX_SAFETY_ORDERS: strategy?.max_safety_orders ?? DEFAULT_STRATEGY.max_safety_orders,
+        SAFETY_ORDER_DISTANCE: strategy?.price_deviation ?? DEFAULT_STRATEGY.price_deviation,
+        TAKE_PROFIT_PERCENT: strategy?.take_profit_percent ?? DEFAULT_STRATEGY.take_profit_percent,
+        STOP_LOSS_PERCENT: strategy?.stop_loss_percent ?? DEFAULT_STRATEGY.stop_loss_percent,
+        LIMIT_BUY_FEE_PERCENT: strategy?.limit_buy_fee_percent ?? DEFAULT_STRATEGY.limit_buy_fee_percent,
+        LIMIT_SELL_FEE_PERCENT: strategy?.limit_sell_fee_percent ?? DEFAULT_STRATEGY.limit_sell_fee_percent,
+        MARKET_BUY_FEE_PERCENT: strategy?.market_buy_fee_percent ?? DEFAULT_STRATEGY.market_buy_fee_percent,
+        MARKET_SELL_FEE_PERCENT: strategy?.market_sell_fee_percent ?? DEFAULT_STRATEGY.market_sell_fee_percent,
+        MARTINGALE_ENABLED: strategy?.martingale_enabled ?? DEFAULT_STRATEGY.martingale_enabled,
+        VOLUME_SCALE: strategy?.volume_scale ?? DEFAULT_STRATEGY.volume_scale,
+        STEP_SCALE: strategy?.deviation_scale ?? DEFAULT_STRATEGY.deviation_scale,
         DCA_INTERVAL_HOURS: 24,
         DCA_AMOUNT_IDR: 10000,
-        RSI_PERIOD: strategy?.rsi_period || 14,
-        RSI_OVERSOLD: strategy?.rsi_oversold || 60,
-        RSI_OVERBOUGHT: strategy?.rsi_overbought || 70,
+        RSI_PERIOD: strategy?.rsi_period ?? DEFAULT_STRATEGY.rsi_period,
+        RSI_OVERSOLD: strategy?.rsi_oversold ?? DEFAULT_STRATEGY.rsi_oversold,
+        RSI_OVERBOUGHT: strategy?.rsi_overbought ?? DEFAULT_STRATEGY.rsi_overbought,
         DRY_RUN: bot?.dry_run ?? true,
         LOG_FILE: 'dca_bot.log',
         DATA_FILE: `data/dca_data_${account.id.replace(/[^a-zA-Z0-9_-]/g, '_')}.json`

@@ -5,6 +5,7 @@ Bot trading DCA (Dollar Cost Averaging) otomatis untuk Indodax Exchange dengan s
 ## 🏗️ Arsitektur Produksi
 
 Sistem menggunakan **Node.js dashboard/API + Python Bot Manager + SQLite**. Docker menjalankan dan mengawasi kedua proses; SQLite adalah sumber kebenaran bersama.
+Komponen historis yang bukan entry point production dicatat di [LEGACY.md](LEGACY.md).
 
 ```
 ┌─────────────────────────────────────────┐
@@ -55,7 +56,12 @@ xbot/
 
 ```bash
 npm install
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
 ```
+
+Command test Python otomatis memakai `.venv/bin/python` jika virtual environment
+tersebut tersedia, dan memakai `python3` (atau nilai environment `PYTHON`) pada CI.
 
 ### 2. Buat konfigurasi aman
 
@@ -72,7 +78,7 @@ MAX_ACCOUNT_EXPOSURE_IDR=0
 LIVE_TRADING_ENABLED=false
 LIVE_TRADING_CONFIRMATION=
 LIVE_TRADING_BOT_IDS=
-LIVE_MIN_DRY_RUN_CYCLES=3
+LIVE_MIN_DRY_RUN_CYCLES=1
 API_CIRCUIT_FAILURE_THRESHOLD=5
 API_CIRCUIT_COOLDOWN_SECONDS=120
 BACKUP_ENCRYPTION_KEY=<secret backup terpisah>
@@ -144,7 +150,7 @@ Sekarang Anda bisa menambahkan multiple akun Indodax:
 ### API Keys Storage
 
 API keys **tidak disimpan di config.py**. Sekarang disimpan di:
-- **Database**: `data/dca_bot.db` (AES-256-GCM authenticated encryption)
+- **Database**: `data/dca_bot.db` (AES-256-GCM v3 dengan AAD terikat account ID; pembaca format lama tetap tersedia)
 - **Encryption Key**: `.env` file
 
 ### Migrasi ciphertext lama
