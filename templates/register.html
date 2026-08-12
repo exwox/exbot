@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - EXBOT DCA Bot</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .register-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .register-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .register-header i {
+            font-size: 3rem;
+            color: #6c63ff;
+        }
+
+        .register-header h2 {
+            color: #333;
+            font-weight: 700;
+            margin-top: 10px;
+        }
+
+        .form-control {
+            border-radius: 10px;
+            padding: 12px;
+            border: 1px solid #ddd;
+        }
+
+        .form-control:focus {
+            border-color: #6c63ff;
+            box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.1);
+        }
+
+        .btn-register {
+            background: linear-gradient(135deg, #6c63ff, #4c46c8);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 12px;
+            font-weight: 600;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .btn-register:hover {
+            background: linear-gradient(135deg, #7a74ff, #5c54d8);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(108, 99, 255, 0.4);
+        }
+
+        .login-link {
+            text-align: center;
+            margin-top: 20px;
+            color: #666;
+        }
+
+        .login-link a {
+            color: #6c63ff;
+            font-weight: 600;
+        }
+
+        .alert {
+            border-radius: 10px;
+        }
+        .btn-register:disabled { opacity: .7; transform: none; box-shadow: none; }
+        @media (max-width: 480px) { .register-card { margin: 16px; padding: 28px 24px; } }
+    </style>
+</head>
+
+<body>
+    <div class="register-card">
+        <div class="register-header">
+            <i class="bi bi-person-plus"></i>
+            <h2>EXBOT Register</h2>
+            <p class="text-muted">Buat akun baru</p>
+        </div>
+
+        <div id="formAlert" class="alert d-none" role="alert" aria-live="polite"></div>
+
+        <form id="registerForm" onsubmit="handleRegister(event)">
+            <div class="mb-3">
+                <label class="form-label">Username</label>
+                <input type="text" name="username" class="form-control" required autofocus autocomplete="username" minlength="3" maxlength="64" pattern="[A-Za-z0-9_.-]+">
+                <small class="text-muted">Gunakan huruf, angka, titik, garis bawah, atau strip.</small>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Email</label>
+                <input type="email" name="email" class="form-control" required autocomplete="email" maxlength="254">
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Password</label>
+                <input type="password" name="password" class="form-control" required minlength="10" autocomplete="new-password">
+                <small class="text-muted">Minimal 10 karakter</small>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Konfirmasi Password</label>
+                <input type="password" name="confirm_password" class="form-control" required autocomplete="new-password">
+            </div>
+
+            <button id="submitButton" type="submit" class="btn btn-register">
+                <i class="bi bi-person-plus me-2"></i><span>Register</span>
+            </button>
+        </form>
+
+        <div class="login-link">
+            Sudah punya akun? <a href="/login">Login di sini</a>
+        </div>
+    </div>
+
+    <script>
+        const formAlert = document.getElementById('formAlert');
+        const submitButton = document.getElementById('submitButton');
+        function showAlert(message, type = 'danger') {
+            formAlert.textContent = message;
+            formAlert.className = `alert alert-${type}`;
+        }
+
+        async function handleRegister(event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+            const password = formData.get('password');
+            const confirmPassword = formData.get('confirm_password');
+
+            if (password !== confirmPassword) {
+                showAlert('Konfirmasi password tidak cocok.');
+                return;
+            }
+
+            formAlert.className = 'alert d-none';
+            submitButton.disabled = true;
+            submitButton.querySelector('span').textContent = 'Mendaftarkan...';
+
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: formData.get('username').trim(),
+                        email: formData.get('email').trim(),
+                        password: password
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showAlert('Registrasi berhasil. Mengalihkan ke halaman login...', 'success');
+                    setTimeout(() => { window.location.href = '/login'; }, 700);
+                } else {
+                    showAlert('Registrasi gagal: ' + (result.error || 'Silakan coba lagi.'));
+                }
+            } catch (e) {
+                showAlert('Tidak dapat terhubung ke server. Coba lagi.');
+            } finally {
+                submitButton.disabled = false;
+                submitButton.querySelector('span').textContent = 'Register';
+            }
+        }
+    </script>
+</body>
+
+</html>

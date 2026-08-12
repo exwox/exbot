@@ -1,0 +1,12 @@
+.env
+config.py
+.git
+.venv
+node_modules
+data
+logs
+backups
+__pycache__
+*.pyc
+*.db
+*.sqlite

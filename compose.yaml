@@ -1,0 +1,37 @@
+services:
+  xbot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: xbot:1.0.0
+    container_name: xbot
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    # Node and Python use different environment-variable names in the current
+    # source, so both are explicitly pointed to the same runtime resources.
+    environment:
+      PORT: "5000"
+      DASHBOARD_HOST: "0.0.0.0"
+      DASHBOARD_PORT: "5000"
+      DB_PATH: "/app/data/dca_bot.db"
+      DATABASE_PATH: "/app/data/dca_bot.db"
+      BACKUP_DIR: "/app/backups"
+
+    ports:
+      - "${XBOT_HOST_PORT:-5000}:5000"
+
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./backups:/app/backups
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "${DOCKER_LOG_MAX_SIZE:-10m}"
+        max-file: "${DOCKER_LOG_MAX_FILES:-5}"
+
+    stop_grace_period: 45s

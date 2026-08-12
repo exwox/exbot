@@ -1,0 +1,42 @@
+"""
+Konfigurasi Bot DCA - Exbot (Templat Contoh)
+Salin berkas ini menjadi config.py dan sesuaikan nilainya.
+"""
+
+# API Credentials Indodax (Masukkan API Key & Secret Key Anda)
+INDODAX_API_KEY = 'YOUR_API_KEY'
+INDODAX_SECRET_KEY = 'YOUR_SECRET_KEY'
+
+# Parameter Trading Pair
+TRADING_PAIR = 'btcidr'  # Pair trading (btcidr, ethidr, dll)
+
+# Setting DCA
+BASE_ORDER_IDR = 15000  # Jumlah pembelian awal (IDR)
+SAFETY_ORDER_IDR = 15000  # Jumlah pembelian safety order (IDR)
+MAX_SAFETY_ORDERS = 5  # Jumlah maksimum safety order
+SAFETY_ORDER_DISTANCE = 1.2  # Jarak safety order (%)
+
+# Setting TP SL
+TAKE_PROFIT_PERCENT = 1.0  # Take profit (%)
+STOP_LOSS_PERCENT = 0.0  # Stop loss (%) - 0 = tanpa stop loss
+
+# Setting Martingale (on/off)
+MARTINGALE_ENABLED = False  # Mode Martingale
+VOLUME_SCALE = 1.5  # Volume scale multiplier (ex: 1.5 = 1.5X)
+
+# Setting Step Scale
+STEP_SCALE = 1.5  # Step scale (%) - multiplier untuk jarak safety order
+
+# Parameter DCA (legacy - untuk backward compatibility dengan dashboard)
+DCA_INTERVAL_HOURS = 24  # Interval pembelian (jam)
+DCA_AMOUNT_IDR = 10000  # Jumlah pembelian per interval (IDR)
+
+# Setting RSI (untuk re-entry setelah TP)
+RSI_PERIOD = 14  # Periode RSI
+RSI_OVERSOLD = 60  # Level oversold untuk re-entry setelah TP
+RSI_OVERBOUGHT = 70  # Level overbought (tidak digunakan untuk DCA)
+
+# Pengaturan tambahan
+DRY_RUN = True  # Mode simulasi (True = tidak benar-benar trading, sangat disarankan untuk tes awal)
+LOG_FILE = 'dca_bot.log'
+DATA_FILE = 'dca_data.json'
