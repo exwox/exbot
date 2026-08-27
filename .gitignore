@@ -18,6 +18,12 @@ pyrightconfig.json
 dca_bot.log
 dca_bot.stdout.log
 dca_data.json
+# Log Bot dan File Data Lokal
+logs/
+dca_bot.log
+dca_bot.stdout.log
+*.log
+dca_data.json
 
 # File Sistem OS
 .DS_Store
