@@ -48,6 +48,7 @@ class StrategyEngine:
         self.martingale_enabled = bool(values['martingale_enabled'])
         self.rsi_period = int(values['rsi_period'])
         self.rsi_oversold = int(values['rsi_oversold'])
+        self.rsi_overbought = int(values['rsi_overbought'])
         self.initial_entry_mode = str(values['initial_entry_mode']).upper()
         self.max_position_amount = float(values['max_position_amount'])
         self._validate()

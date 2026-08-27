@@ -20,6 +20,7 @@ function startServer() {
         env: {
             ...process.env,
             PORT: String(port),
+            DASHBOARD_HOST: '0.0.0.0',
             DB_PATH: databasePath,
             DATABASE_PATH: databasePath,
             ENCRYPTION_KEY: 'integration-test-master-key-32-bytes',

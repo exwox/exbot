@@ -6,6 +6,11 @@ services:
     image: xbot:1.0.0
     container_name: xbot
     restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
 
     env_file:
       - .env
@@ -21,12 +26,14 @@ services:
       BACKUP_DIR: "/app/backups"
 
     ports:
-      - "${XBOT_HOST_PORT:-5000}:5000"
+      - "${XBOT_BIND_ADDRESS:-127.0.0.1}:${XBOT_HOST_PORT:-5000}:5000"
 
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
       - ./backups:/app/backups
+    tmpfs:
+      - /tmp:size=16m,mode=1777
 
     logging:
       driver: json-file

@@ -43,6 +43,12 @@ fi
 
 log "Memverifikasi administrator..."
 node scripts/ensure_admin.js || fail "Bootstrap administrator gagal. Periksa error Node/admin tepat di atas."
+if [[ -n "${ADMIN_PASSWORD:-}" ]]; then
+    log "PERINGATAN: ADMIN_PASSWORD masih tersedia di environment. Hapus setelah administrator pertama berhasil dibuat."
+fi
+if [[ -z "${BACKUP_ENCRYPTION_KEY:-}" ]]; then
+    log "PERINGATAN: BACKUP_ENCRYPTION_KEY kosong; backup memakai ENCRYPTION_KEY utama. Gunakan secret backup terpisah."
+fi
 
 log "Memulai Python Bot Manager..."
 python app.py --no-dashboard &

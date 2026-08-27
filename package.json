@@ -5,14 +5,14 @@
   "main": "index.js",
   "scripts": {
     "start": "node dashboard.js",
-    "setup": "python3 app.py --setup",
+    "setup": "bash scripts/run_python.sh app.py --setup",
     "setup:admin": "node scripts/ensure_admin.js",
-    "test": "node --test tests/check_html_scripts.js tests/test_backtest_engine.js tests/test_credential_crypto.js tests/test_dca_capital.js tests/test_docker_build_contract.js tests/test_live_rollout_preflight.js tests/test_live_trading_policy.js tests/test_smc_overlay.js tests/test_strategy_defaults.js tests/test_trade_ledger.js",
+    "test": "node --test tests/check_html_scripts.js tests/test_backtest_engine.js tests/test_credential_crypto.js tests/test_dca_capital.js tests/test_docker_build_contract.js tests/test_live_rollout_preflight.js tests/test_live_trading_policy.js tests/test_smc_overlay.js tests/test_strategy_defaults.js tests/test_telegram_notification.js tests/test_telegram_routes.js tests/test_trade_ledger.js",
     "test:integration": "node --test tests/test_auth_security.js",
     "test:python": "bash scripts/test_python.sh",
     "test:docker": "bash scripts/docker_smoke_test.sh xbot:test",
-    "migrate:credentials": "python3 scripts/migrate_credentials.py",
-    "backup:db": "python3 scripts/backup_database.py",
+    "migrate:credentials": "bash scripts/run_python.sh scripts/migrate_credentials.py",
+    "backup:db": "bash scripts/run_python.sh scripts/backup_database.py",
     "preflight:live": "node scripts/live_rollout_preflight.js",
     "audit:dry-run": "bash scripts/run_python.sh scripts/audit_dry_run_cycles.py"
   },

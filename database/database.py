@@ -400,9 +400,20 @@ class DatabaseManager:
                 message TEXT,
                 metadata TEXT,
                 created_at TEXT NOT NULL,
+                telegram_notified_at TEXT,
                 FOREIGN KEY (account_id) REFERENCES accounts(id)
             )
         """)
+        try:
+            cursor.execute(
+                'ALTER TABLE bot_logs ADD COLUMN telegram_notified_at TEXT')
+            cursor.execute("""
+                UPDATE bot_logs SET telegram_notified_at=created_at
+                WHERE telegram_notified_at IS NULL
+            """)
+        except sqlite3.OperationalError as error:
+            if 'duplicate column name' not in str(error).lower():
+                raise
 
         # System logs table
         cursor.execute("""

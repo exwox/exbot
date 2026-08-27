@@ -198,6 +198,7 @@ class Database {
                     message TEXT,
                     metadata TEXT,
                     created_at TEXT NOT NULL,
+                    telegram_notified_at TEXT,
                     FOREIGN KEY (account_id) REFERENCES accounts(id)
                 )
             `);
@@ -325,6 +326,7 @@ class Database {
                     status TEXT NOT NULL DEFAULT 'PENDING',
                     attempts INTEGER NOT NULL DEFAULT 0,
                     last_error TEXT,
+                    source_key TEXT NOT NULL DEFAULT '',
                     created_at TEXT NOT NULL,
                     sent_at TEXT,
                     FOREIGN KEY (user_id) REFERENCES users(id)
@@ -333,6 +335,16 @@ class Database {
             this.db.run('CREATE INDEX IF NOT EXISTS idx_telegram_notifications_status ON telegram_notifications(status)');
             this.db.run('CREATE INDEX IF NOT EXISTS idx_telegram_bindings_user ON telegram_chat_bindings(user_id)');
             this.db.run('CREATE INDEX IF NOT EXISTS idx_telegram_link_codes_user ON telegram_link_codes(user_id)');
+            this.db.run(`
+                CREATE TABLE IF NOT EXISTS telegram_digest_state (
+                    user_id TEXT NOT NULL,
+                    digest_kind TEXT NOT NULL,
+                    period_key TEXT NOT NULL,
+                    sent_at TEXT NOT NULL,
+                    PRIMARY KEY (user_id, digest_kind, period_key),
+                    FOREIGN KEY (user_id) REFERENCES users(id)
+                )
+            `);
 
 
             this.db.run(`
@@ -419,6 +431,40 @@ class Database {
         addColumn('alerts', 'telegram_notified_at', 'TEXT');
         addColumn('dca_cycles', 'telegram_notified_at', 'TEXT');
         addColumn('orders', 'telegram_notified_at', 'TEXT');
+        this.db.run(
+            "ALTER TABLE telegram_notifications ADD COLUMN source_key TEXT NOT NULL DEFAULT ''",
+            err => {
+                if (!err) {
+                    // Affected installations can contain a large queue built
+                    // by the old non-text source marker. Quarantine it rather
+                    // than replaying stale messages after the upgrade.
+                    this.db.run(`UPDATE telegram_notifications
+                                 SET status='CANCELLED',
+                                     last_error='Superseded by idempotent Telegram feed migration'
+                                 WHERE status='PENDING'`);
+                    this.db.run(`UPDATE orders
+                                 SET telegram_notified_at=COALESCE(updated_at, created_at)
+                                 WHERE status='FILLED'
+                                   AND telegram_notified_at IS NULL`);
+                } else if (!err.message.includes('duplicate column name')) {
+                    console.error('[DB] Migration failed for telegram_notifications.source_key:', err.message);
+                }
+            }
+        );
+        this.db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_telegram_notifications_source
+                     ON telegram_notifications(user_id, source_key)
+                     WHERE source_key<>''`);
+        this.db.run('ALTER TABLE bot_logs ADD COLUMN telegram_notified_at TEXT', err => {
+            if (!err) {
+                // Do not replay the complete historical log when this feature
+                // is first installed. Only logs created afterwards are feeds.
+                this.db.run(`UPDATE bot_logs
+                             SET telegram_notified_at=created_at
+                             WHERE telegram_notified_at IS NULL`);
+            } else if (!err.message.includes('duplicate column name')) {
+                console.error('[DB] Migration failed for bot_logs.telegram_notified_at:', err.message);
+            }
+        });
         this.db.run("CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_client_order_id ON orders(client_order_id) WHERE client_order_id<>''");
         this.db.run(`
             INSERT OR IGNORE INTO dca_cycles
@@ -1632,77 +1678,12 @@ class Database {
     // Telegram integration storage
     // ============================================================
 
-    getTelegramConfig(userId) {
-        return new Promise((resolve, reject) => {
-            this.db.get(
-                'SELECT * FROM telegram_config WHERE user_id=?',
-                [String(userId)],
-                (error, row) => error ? reject(error) : resolve(row || null)
-            );
-        });
-    }
-
     getAllTelegramConfigs() {
         return new Promise((resolve, reject) => {
             this.db.all(
                 'SELECT * FROM telegram_config WHERE enabled=1 ORDER BY updated_at ASC',
                 [],
                 (error, rows) => error ? reject(error) : resolve(rows || [])
-            );
-        });
-    }
-
-    setTelegramConfig(userId, token, enabled) {
-        const now = new Date().toISOString();
-        const encryptedToken = token ? this.encrypt(token, `telegram:${userId}`) : null;
-        return new Promise((resolve, reject) => {
-            this.db.get(
-                'SELECT user_id FROM telegram_config WHERE user_id=?',
-                [String(userId)],
-                (getError, existing) => {
-                    if (getError) return reject(getError);
-                    if (existing) {
-                        const params = [
-                            encryptedToken !== null ? encryptedToken : existing.bot_token_encrypted,
-                            enabled ? 1 : 0,
-                            now,
-                            String(userId)
-                        ];
-                        this.db.run(
-                            `UPDATE telegram_config
-                             SET bot_token_encrypted=?, enabled=?, updated_at=?
-                             WHERE user_id=?`,
-                            params,
-                            updateError => updateError ? reject(updateError) : resolve(true)
-                        );
-                    } else {
-                        this.db.run(
-                            `INSERT INTO telegram_config
-                                (user_id, bot_token_encrypted, enabled, created_at, updated_at)
-                             VALUES (?, ?, ?, ?, ?)`,
-                            [String(userId), encryptedToken || '', enabled ? 1 : 0, now, now],
-                            insertError => insertError ? reject(insertError) : resolve(true)
-                        );
-                    }
-                }
-            );
-        });
-    }
-
-    createTelegramLinkCode(userId, ttlMinutes = 10) {
-        const code = crypto.randomBytes(5).toString('hex').toUpperCase();
-        const now = new Date();
-        const expiresAt = new Date(now.getTime() + ttlMinutes * 60 * 1000).toISOString();
-        return new Promise((resolve, reject) => {
-            this.db.run(
-                `INSERT INTO telegram_link_codes
-                    (code, user_id, status, expires_at, created_at)
-                 VALUES (?, ?, 'PENDING', ?, ?)`,
-                [code, String(userId), expiresAt, now.toISOString()],
-                (error) => error ? reject(error) : resolve({
-                    code, user_id: String(userId), status: 'PENDING',
-                    expires_at: expiresAt, created_at: now.toISOString()
-                })
             );
         });
     }
@@ -1716,37 +1697,6 @@ class Database {
                  ORDER BY created_at DESC LIMIT 1`,
                 [String(userId), now],
                 (error, row) => error ? reject(error) : resolve(row || null)
-            );
-        });
-    }
-
-    consumeTelegramLinkCode(code, chatId) {
-        const now = new Date().toISOString();
-        return new Promise((resolve, reject) => {
-            this.db.get(
-                `SELECT * FROM telegram_link_codes
-                 WHERE code=? AND status='PENDING' AND expires_at>?`,
-                [String(code).toUpperCase(), now],
-                (getError, row) => {
-                    if (getError) return reject(getError);
-                    if (!row) return resolve(null);
-                    this.db.run(
-                        `UPDATE telegram_link_codes SET status='LINKED' WHERE code=?`,
-                        [row.code],
-                        (updateError) => {
-                            if (updateError) return reject(updateError);
-                            this.db.run(
-                                `INSERT INTO telegram_chat_bindings (chat_id, user_id, linked_at)
-                                 VALUES (?, ?, ?)
-                                 ON CONFLICT(chat_id) DO UPDATE SET user_id=excluded.user_id, linked_at=excluded.linked_at`,
-                                [String(chatId), String(row.user_id), now],
-                                (bindError) => bindError ? reject(bindError) : resolve({
-                                    code: row.code, user_id: row.user_id, chat_id: String(chatId)
-                                })
-                            );
-                        }
-                    );
-                }
             );
         });
     }
@@ -1776,43 +1726,6 @@ class Database {
             this.db.run(
                 'DELETE FROM telegram_chat_bindings WHERE chat_id=? AND user_id=?',
                 [String(chatId), String(userId)],
-                (error) => error ? reject(error) : resolve(true)
-            );
-        });
-    }
-
-    enqueueTelegramNotification(userId, chatId, kind, title, message) {
-        return new Promise((resolve, reject) => {
-            this.db.run(
-                `INSERT INTO telegram_notifications
-                    (user_id, chat_id, kind, title, message, created_at)
-                 VALUES (?, ?, ?, ?, ?, ?)`,
-                [String(userId), String(chatId), String(kind), String(title),
-                 redactSensitive(String(message)), new Date().toISOString()],
-                (error) => error ? reject(error) : resolve(true)
-            );
-        });
-    }
-
-    getPendingTelegramNotifications(limit = 200) {
-        return new Promise((resolve, reject) => {
-            this.db.all(
-                `SELECT * FROM telegram_notifications
-                 WHERE status='PENDING' AND attempts < 8
-                 ORDER BY id ASC LIMIT ?`,
-                [limit],
-                (error, rows) => error ? reject(error) : resolve(rows || [])
-            );
-        });
-    }
-
-    markTelegramNotificationSent(id, sentAt) {
-        return new Promise((resolve, reject) => {
-            this.db.run(
-                `UPDATE telegram_notifications
-                 SET status='SENT', sent_at=?, last_error=NULL
-                 WHERE id=?`,
-                [sentAt, id],
                 (error) => error ? reject(error) : resolve(true)
             );
         });
@@ -1885,13 +1798,406 @@ class Database {
                 `SELECT o.* FROM orders o
                  JOIN accounts ac ON ac.id=o.account_id
                  WHERE o.status='FILLED'
-                   AND o.order_type='buy'
+                   AND o.side='buy'
                    AND o.dca_level=0
                    AND o.telegram_notified_at IS NULL
                    AND ac.user_id=?
                  ORDER BY o.updated_at ASC LIMIT ?`,
                 [String(userId), limit],
                 (error, rows) => error ? reject(error) : resolve(rows || [])
+            );
+        });
+    }
+
+    getUnnotifiedBotEventsForUser(userId, limit = 50) {
+        const events = [
+            'BOT_START', 'BOT_STOP', 'BOT_PAUSE', 'BOT_ERROR',
+            'ORDER_PLACED', 'ORDER_CANCELLED', 'ORDER_FAILED',
+            'DCA_ENTRY', 'STOP_LOSS', 'API_ERROR', 'CONFIG_CHANGE',
+            'PRICE_SIGNAL', 'RSI_SIGNAL'
+        ];
+        const placeholders = events.map(() => '?').join(', ');
+        return new Promise((resolve, reject) => {
+            this.db.all(
+                `SELECT l.*, b.name AS bot_name, b.pair, b.dry_run
+                 FROM bot_logs l
+                 JOIN accounts ac ON ac.id=l.account_id
+                 LEFT JOIN bots b ON b.id=l.bot_id
+                 WHERE l.telegram_notified_at IS NULL
+                   AND ac.user_id=?
+                   AND l.event IN (${placeholders})
+                   AND (l.event<>'ORDER_PLACED' OR l.message LIKE '%TP order%')
+                 ORDER BY l.created_at ASC LIMIT ?`,
+                [String(userId), ...events, limit],
+                (error, rows) => error ? reject(error) : resolve(rows || [])
+            );
+        });
+    }
+
+    getTelegramUserSummary(userId, sinceIso = null) {
+        return new Promise((resolve, reject) => {
+            this.db.get(
+                `WITH owned_bots AS (
+                    SELECT b.* FROM bots b
+                    JOIN accounts ac ON ac.id=b.account_id
+                    WHERE ac.user_id=?
+                 ), filtered_cycles AS (
+                    SELECT c.* FROM dca_cycles c
+                    JOIN owned_bots b ON b.id=c.bot_id
+                    WHERE (? IS NULL OR c.closed_at>=?)
+                 )
+                 SELECT
+                    (SELECT COUNT(*) FROM filtered_cycles WHERE status='CLOSED') AS closed_cycles,
+                    COALESCE((SELECT SUM(realized_profit) FROM filtered_cycles WHERE status='CLOSED'), 0) AS realized_profit,
+                    COALESCE((SELECT SUM(total_fees) FROM filtered_cycles WHERE status='CLOSED'), 0) AS total_fees,
+                    (SELECT COUNT(*) FROM filtered_cycles WHERE status='CLOSED' AND realized_profit>0) AS wins,
+                    (SELECT COUNT(*) FROM owned_bots WHERE status='RUNNING') AS running_bots,
+                    (SELECT COUNT(*) FROM owned_bots) AS total_bots,
+                    COALESCE((SELECT SUM(p.total_invested) FROM positions p
+                              JOIN owned_bots b ON b.id=p.bot_id
+                              WHERE p.status IN ('OPEN','PENDING_BASE')), 0) AS active_capital`,
+                [String(userId), sinceIso, sinceIso],
+                (error, row) => error ? reject(error) : resolve(row || {})
+            );
+        });
+    }
+
+    hasTelegramDigest(userId, kind, periodKey) {
+        return new Promise((resolve, reject) => {
+            this.db.get(
+                `SELECT 1 AS present FROM telegram_digest_state
+                 WHERE user_id=? AND digest_kind=? AND period_key=?`,
+                [String(userId), String(kind), String(periodKey)],
+                (error, row) => error ? reject(error) : resolve(Boolean(row))
+            );
+        });
+    }
+
+    markTelegramDigest(userId, kind, periodKey) {
+        return new Promise((resolve, reject) => {
+            this.db.run(
+                `INSERT OR IGNORE INTO telegram_digest_state
+                    (user_id, digest_kind, period_key, sent_at)
+                 VALUES (?, ?, ?, ?)`,
+                [String(userId), String(kind), String(periodKey), new Date().toISOString()],
+                error => error ? reject(error) : resolve()
+            );
+        });
+    }
+
+    // ============================================================
+    // Telegram notification integration. The bot token is stored
+    // encrypted with an account-bound credential context (the owner
+    // user id, v3) and is only ever decrypted inside the Telegram
+    // service. Feed getters below reuse the columns migrated by
+    // migrateLegacySchema() (telegram_notified_at on alerts,
+    // dca_cycles and orders).
+    // ============================================================
+    _telegramConfigRow(userId) {
+        return new Promise((resolve, reject) => {
+            this.db.get(
+                'SELECT * FROM telegram_config WHERE user_id=?',
+                [String(userId)],
+                (error, row) => error ? reject(error) : resolve(row || null)
+            );
+        });
+    }
+
+    async getTelegramConfig(userId) {
+        const [row, bindings] = await Promise.all([
+            this._telegramConfigRow(userId),
+            this.getTelegramChatBindings(userId)
+        ]);
+        return {
+            enabled: Boolean(row && row.enabled),
+            has_token: Boolean(row && row.bot_token_encrypted),
+            linked_chats: bindings,
+            chat_id: bindings.length ? bindings[0].chat_id : '',
+        };
+    }
+
+    /**
+     * Create or update the Telegram configuration for one user. When
+     * `botToken` is provided it replaces the stored secret; enabling the
+     * integration is refused while no usable token is known, so callers can
+     * never arm an integration that could not deliver messages.
+     */
+    async setTelegramConfig(userId, options = {}) {
+        const key = String(userId);
+        const current = await this._telegramConfigRow(key);
+        const hadToken = Boolean(current && current.bot_token_encrypted);
+
+        let tokenEncrypted = current ? current.bot_token_encrypted : '';
+        if (typeof options.botToken === 'string' && options.botToken.trim()) {
+            const token = options.botToken.trim();
+            if (!/^\d{5,16}:[A-Za-z0-9_-]{25,}$/.test(token)) {
+                throw new Error('Format token Telegram tidak valid (harus format BotFather seperti 123456789:AA...)');
+            }
+            if (token.length > 64) {
+                throw new Error('Token Telegram terlalu panjang');
+            }
+            tokenEncrypted = encryptCredential(token, this.encryptionKey, key);
+        } else if (typeof options.enabled === 'boolean' && options.enabled && !hadToken) {
+            throw new Error('Simpan token BotFather terlebih dahulu sebelum mengaktifkan notifikasi');
+        }
+
+        const now = new Date().toISOString();
+        const enabledValue = typeof options.enabled === 'boolean'
+            ? (options.enabled ? 1 : 0)
+            : (current ? current.enabled : 0);
+        await new Promise((resolve, reject) => {
+            this.db.run(
+                `INSERT INTO telegram_config
+                     (user_id, bot_token_encrypted, enabled, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?)
+                 ON CONFLICT(user_id) DO UPDATE SET
+                    bot_token_encrypted=excluded.bot_token_encrypted,
+                    enabled=excluded.enabled,
+                    updated_at=excluded.updated_at`,
+                [key, tokenEncrypted, enabledValue, now, now],
+                error => error ? reject(error) : resolve()
+            );
+        });
+        return this.getTelegramConfig(key);
+    }
+
+    /** Users whose integration is armed (token present) for fan-out work. */
+    listTelegramRecipientUsers() {
+        return new Promise((resolve, reject) => {
+            this.db.all(
+                `SELECT tc.user_id AS user_id, u.is_admin AS is_admin
+                 FROM telegram_config tc
+                 JOIN users u ON u.id=tc.user_id
+                 WHERE tc.enabled=1 AND tc.bot_token_encrypted<>''`,
+                [],
+                (error, rows) => error ? reject(error) : resolve(rows || [])
+            );
+        });
+    }
+
+    /** Decrypt the stored token for the delivery worker (service-internal). */
+    async getTelegramBotToken(userId) {
+        const row = await this._telegramConfigRow(String(userId));
+        if (!row || !row.bot_token_encrypted) return '';
+        if (!this.encryptionKey) return '';
+        try {
+            return decryptCredential(row.bot_token_encrypted, this.encryptionKey, String(userId));
+        } catch (error) {
+            console.error('[DATABASE] Failed to decrypt Telegram bot token:', error.message);
+            return '';
+        }
+    }
+
+
+    // --- Chat linking ----------------------------------------------------
+    static LINK_CODE_TTL_MS = 15 * 60 * 1000;
+    static LINK_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+    async createTelegramLinkCode(userId) {
+        const key = String(userId);
+        // A fresh generation invalidates outstanding codes: codes are bearer
+        // secrets and piling them up widens the takeover window for no gain.
+        await new Promise((resolve, reject) => {
+            this.db.run(
+                "UPDATE telegram_link_codes SET status='EXPIRED' WHERE user_id=? AND status='PENDING'",
+                [key],
+                error => error ? reject(error) : resolve()
+            );
+        });
+        const codeBytes = crypto.randomBytes(8);
+        const alphabet = Database.LINK_CODE_ALPHABET;
+        let code = '';
+        for (let i = 0; i < 8; i += 1) {
+            code += alphabet[codeBytes[i] % alphabet.length];
+        }
+        const now = Date.now();
+        const expiresAt = new Date(now + Database.LINK_CODE_TTL_MS).toISOString();
+        await new Promise((resolve, reject) => {
+            this.db.run(
+                `INSERT INTO telegram_link_codes (code, user_id, status, expires_at, created_at)
+                 VALUES (?, ?, 'PENDING', ?, ?)`,
+                [code, key, expiresAt, new Date(now).toISOString()],
+                error => error ? reject(error) : resolve()
+            );
+        });
+        return { code, expires_at: expiresAt };
+    }
+
+    /** Ownership-safe validation used by the web UI before asking for /start. */
+    async peekTelegramLinkCode(code, userId) {
+        return new Promise((resolve, reject) => {
+            this.db.get(
+                'SELECT * FROM telegram_link_codes WHERE code=?',
+                [String(code || '').toUpperCase()],
+                (error, row) => {
+                    if (error) return reject(error);
+                    if (!row || row.user_id !== String(userId)) return resolve(null);
+                    if (row.status !== 'PENDING' || new Date(row.expires_at).getTime() <= Date.now()) {
+                        return resolve({ ...row, status: 'EXPIRED', expired: true });
+                    }
+                    resolve(row);
+                }
+            );
+        });
+    }
+
+    /**
+     * Bind a Telegram chat to the owner of a still-pending link code. Called
+     * by the Telegram service after `/start <CODE>`; possession of the chat is
+     * proven by the fact that the message arrived through the paired bot.
+     */
+    async consumeTelegramLinkCode(code, chatId) {
+        const normalized = String(code || '').toUpperCase().trim();
+        const chat = String(chatId || '').trim();
+        if (!normalized || !chat) return null;
+        const row = await new Promise((resolve, reject) => {
+            this.db.get(
+                "SELECT * FROM telegram_link_codes WHERE code=? AND status='PENDING'",
+                [normalized],
+                (error, found) => error ? reject(error) : resolve(found || null)
+            );
+        });
+        if (!row) return null;
+        if (new Date(row.expires_at).getTime() < Date.now()) {
+            await new Promise((resolve, reject) => {
+                this.db.run(
+                    "UPDATE telegram_link_codes SET status='EXPIRED' WHERE code=?",
+                    [normalized],
+                    error => error ? reject(error) : resolve()
+                );
+            });
+            return null;
+        }
+        const consumed = await new Promise((resolve, reject) => {
+            this.db.run(
+                "UPDATE telegram_link_codes SET status='CONSUMED' WHERE code=? AND status='PENDING' AND expires_at>?",
+                [normalized, new Date().toISOString()],
+                function (error) {
+                    if (error) reject(error);
+                    else resolve(this.changes === 1);
+                }
+            );
+        });
+        if (!consumed) return null;
+        await new Promise((resolve, reject) => {
+            this.db.run(
+                `INSERT INTO telegram_chat_bindings (chat_id, user_id, linked_at)
+                 VALUES (?, ?, ?)
+                 ON CONFLICT(chat_id) DO UPDATE SET
+                    user_id=excluded.user_id,
+                    linked_at=excluded.linked_at`,
+                [chat, row.user_id, new Date().toISOString()],
+                error => error ? reject(error) : resolve()
+            );
+        });
+        return { user_id: row.user_id, chat_id: chat };
+    }
+
+    getTelegramChatBindings(userId) {
+        return new Promise((resolve, reject) => {
+            this.db.all(
+                'SELECT chat_id, linked_at FROM telegram_chat_bindings WHERE user_id=?',
+                [String(userId)],
+                (error, rows) => error ? reject(error) : resolve(rows || [])
+            );
+        });
+    }
+    // --- Outbound queue ---------------------------------------------------
+    enqueueTelegramNotification(notification) {
+        const now = new Date().toISOString();
+        return new Promise((resolve, reject) => {
+            this.db.run(
+                `INSERT OR IGNORE INTO telegram_notifications
+                     (user_id, chat_id, kind, title, message, status, attempts,
+                      source_key, created_at)
+                 VALUES (?, '', ?, ?, ?, 'PENDING', 0, ?, ?)`,
+                [
+                    String(notification.userId),
+                    String(notification.kind || 'INFO'),
+                    redactSensitive(String(notification.title || 'XBot')),
+                    redactSensitive(String(notification.message || '')),
+                    String(notification.sourceKey || ''),
+                    now
+                ],
+                function (error) {
+                    if (error) reject(error);
+                    else resolve(this.changes === 1 ? this.lastID : null);
+                }
+            );
+        });
+    }
+
+    getPendingTelegramNotifications(limit = 10) {
+        const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 50);
+        return new Promise((resolve, reject) => {
+            this.db.all(
+                `SELECT * FROM telegram_notifications
+                 WHERE status='PENDING' AND attempts < 5
+                 ORDER BY id ASC LIMIT ?`,
+                [safeLimit],
+                (error, rows) => error ? reject(error) : resolve(rows || [])
+            );
+        });
+    }
+
+    markTelegramNotificationSent(id, chatId) {
+        return new Promise((resolve, reject) => {
+            this.db.run(
+                `UPDATE telegram_notifications
+                 SET status='SENT', chat_id=?, sent_at=?, last_error=NULL
+                 WHERE id=?`,
+                [String(chatId), new Date().toISOString(), Number(id)],
+                error => error ? reject(error) : resolve()
+            );
+        });
+    }
+
+    /** Retry-with-cap bookkeeping: FAILED is terminal after MAX_ATTEMPTS tries. */
+    failTelegramNotification(id, errorMessage) {
+        return new Promise((resolve, reject) => {
+            this.db.run(
+                `UPDATE telegram_notifications
+                 SET attempts=attempts+1,
+                     last_error=?,
+                     status=CASE WHEN attempts+1 >= 5 THEN 'FAILED' ELSE 'PENDING' END
+                 WHERE id=?`,
+                [redactSensitive(String(errorMessage || 'unknown error')).slice(0, 400), Number(id)],
+                error => error ? reject(error) : resolve()
+            );
+        });
+    }
+
+    // --- Feed bookkeeping ("handed to the outbound queue") -----------------
+    markAlertsNotified(ids) {
+        return this._markIdsNotified('alerts', ids);
+    }
+
+    markDcaCyclesNotified(ids) {
+        return this._markIdsNotified('dca_cycles', ids);
+    }
+
+    markBaseFillOrdersNotified(ids) {
+        return this._markIdsNotified('orders', ids);
+    }
+
+    markBotLogsNotified(ids) {
+        return this._markIdsNotified('bot_logs', ids);
+    }
+
+    _markIdsNotified(table, ids) {
+        const allowed = { alerts: 1, dca_cycles: 1, orders: 1, bot_logs: 1 };
+        if (!allowed[table] || !Array.isArray(ids) || ids.length === 0) {
+            return Promise.resolve(false);
+        }
+        const placeholders = ids.map(() => '?').join(', ');
+        return new Promise((resolve, reject) => {
+            this.db.run(
+                `UPDATE ${table} SET telegram_notified_at=? WHERE id IN (${placeholders})`,
+                [new Date().toISOString(), ...ids],
+                function (error) {
+                    if (error) reject(error);
+                    else resolve(this.changes > 0);
+                }
             );
         });
     }

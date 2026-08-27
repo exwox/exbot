@@ -1,3 +1,6 @@
-requests>=2.28.0
-python-dotenv>=1.0.0
-cryptography>=41.0.0
+# Direct runtime dependencies are pinned to the versions validated by the
+# Node/Python integration and recovery suites. Update them deliberately with
+# the full test matrix rather than resolving different versions per build.
+requests==2.34.2
+python-dotenv==1.2.2
+cryptography==50.0.0

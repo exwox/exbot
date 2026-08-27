@@ -63,6 +63,8 @@ API_CIRCUIT_COOLDOWN_SECONDS = max(
     10, int(os.getenv('API_CIRCUIT_COOLDOWN_SECONDS', '120')))
 MAX_ACCOUNT_EXPOSURE_IDR = max(
     0.0, float(os.getenv('MAX_ACCOUNT_EXPOSURE_IDR', '0')))
+TELEGRAM_PRICE_CHANGE_PERCENT = max(
+    0.1, float(os.getenv('TELEGRAM_PRICE_CHANGE_PERCENT', '5')))
 LIVE_TRADING_ENABLED = os.getenv(
     'LIVE_TRADING_ENABLED', 'false').strip().lower() == 'true'
 LIVE_TRADING_CONFIRMATION = os.getenv('LIVE_TRADING_CONFIRMATION', '')
@@ -112,5 +114,5 @@ def live_trading_allowed_for(bot_id: str,
 # ============================================================
 LOG_DIR = 'logs'
 LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
-LOG_MAX_BYTES = 10 * 1024 * 1024  # 10MB
-LOG_BACKUP_COUNT = 5
+LOG_MAX_BYTES = max(
+    1024, int(os.getenv('PYTHON_LOG_MAX_BYTES', str(1024 * 1024))))

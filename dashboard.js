@@ -15,6 +15,7 @@ const { DEFAULT_STRATEGY } = require('./strategy-defaults');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const HOST = process.env.DASHBOARD_HOST || '127.0.0.1';
 const DEBUG_LOGGING = String(process.env.LOG_LEVEL || 'INFO').toUpperCase() === 'DEBUG';
 
 function debugLog(message, metadata = null) {
@@ -69,6 +70,8 @@ const accounts = require('./accounts');
 const auth = require('./auth');
 const { IndodaxClient } = require('./indodax-client');
 const apiRoutes = require('./api-endpoints');
+const { TelegramService } = require('./telegram-service');
+let telegramService = null;
 
 // Session middleware
 app.use(async (req, res, next) => {
@@ -144,6 +147,11 @@ async function initDatabase() {
         db.setEncryptionKey(encryptionKey);
         db.init();
         dbInitialized = true;
+        telegramService = new TelegramService(db);
+        telegramService.start();
+
+        // Wait for DB to be ready
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         // Wait for DB to be ready
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -826,7 +834,7 @@ app.get('/api/status', async (req, res) => {
 
 // Start server
 const server = http.createServer(app);
-server.listen(PORT, '0.0.0.0', async () => {
+server.listen(PORT, HOST, async () => {
     console.log('='.repeat(50));
     console.log('🌐 Exbot DCA Bot Dashboard (Node.js)');
     console.log('='.repeat(50));
@@ -838,7 +846,7 @@ server.listen(PORT, '0.0.0.0', async () => {
     // handlers load configuration only after authentication and ownership.
     config = await loadConfig('__system__');
 
-    console.log(`📍 Dashboard berjalan di: http://localhost:${PORT}`);
+    console.log(`📍 Dashboard berjalan di: http://${HOST}:${PORT}`);
     console.log('⏹️  Tekan Ctrl+C untuk menghentikan server');
     console.log('='.repeat(50));
 });
@@ -856,6 +864,25 @@ async function getCurrentUserBot(userId, requestedBotId = null) {
     }
     return null;
 }
+
+// Graceful shutdown must be registered at module scope. Keeping it outside
+// request handlers ensures Docker SIGTERM always stops the Telegram loops and
+// closes SQLite before the process exits.
+let shuttingDown = false;
+function handleShutdown(signal) {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`\n[DASHBOARD] Menerima sinyal ${signal}. Menghentikan service...`);
+    if (telegramService) telegramService.stop();
+    server.close(() => {
+        if (db) db.close();
+        console.log('[DASHBOARD] Web server dihentikan.');
+        process.exit(0);
+    });
+    setTimeout(() => process.exit(1), 40000).unref();
+}
+process.on('SIGINT', () => handleShutdown('SIGINT'));
+process.on('SIGTERM', () => handleShutdown('SIGTERM'));
 
 // Available chart contexts are deliberately limited to the authenticated
 // user's bots.  The browser selects a bot id, so the same pair in dry-run and

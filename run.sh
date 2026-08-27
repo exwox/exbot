@@ -106,22 +106,19 @@ fi
 log "Memverifikasi administrator..."
 node scripts/ensure_admin.js || fail "Administrator belum dikonfigurasi. Isi ADMIN_PASSWORD di .env untuk startup pertama."
 
-PYTHON_LOG="$SCRIPT_DIR/logs/python-manager.log"
-touch "$PYTHON_LOG"
-
-log "Memulai Python Bot Manager (log: logs/python-manager.log)..."
-PYTHONUNBUFFERED=1 "$PYTHON_BIN" app.py --no-dashboard >> "$PYTHON_LOG" 2>&1 &
+log "Memulai Python Bot Manager (file log: logs/dca_bot.log, output juga tampil di terminal)..."
+PYTHONUNBUFFERED=1 "$PYTHON_BIN" app.py --no-dashboard &
 PYTHON_PID=$!
 
 sleep 3
 if ! kill -0 "$PYTHON_PID" 2>/dev/null; then
-    tail -n 40 "$PYTHON_LOG" >&2 || true
-    fail "Python Bot Manager berhenti saat startup. Periksa logs/python-manager.log."
+    tail -n 40 "$SCRIPT_DIR/logs/dca_bot.log" >&2 || true
+    fail "Python Bot Manager berhenti saat startup. Periksa logs/dca_bot.log."
 fi
 
 log "Python Bot Manager aktif (PID $PYTHON_PID)."
 log "Status awal Python Bot Manager:"
-tail -n 20 "$PYTHON_LOG" || true
+tail -n 20 "$SCRIPT_DIR/logs/dca_bot.log" || true
 log "Memulai dashboard di port ${PORT:-5000}..."
 log "Tekan Ctrl+C untuk menghentikan dashboard dan Python Bot Manager."
 node dashboard.js

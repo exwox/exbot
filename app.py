@@ -21,8 +21,23 @@ from services.auth_service import AuthService
 from core.bot_manager import BotManager
 from config.settings import (
     DASHBOARD_HOST, DASHBOARD_PORT, DASHBOARD_DEBUG,
-    DATABASE_PATH, LOG_DIR, LOG_LEVEL
+    DATABASE_PATH, LOG_DIR, LOG_LEVEL, LOG_MAX_BYTES
 )
+
+
+class TruncatingFileHandler(RotatingFileHandler):
+    """Keep one bounded log file and discard old content at the limit."""
+
+    def doRollover(self):
+        if self.stream:
+            self.stream.close()
+            self.stream = None
+        # Deliberately truncate in place: no .1/.2 backup files are created.
+        with open(self.baseFilename, 'w', encoding=self.encoding,
+                  errors=self.errors):
+            pass
+        if not self.delay:
+            self.stream = self._open()
 
 
 def setup_logging():
@@ -32,10 +47,10 @@ def setup_logging():
     log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     handlers = [logging.StreamHandler(sys.stdout)]
     try:
-        handlers.insert(0, RotatingFileHandler(
+        handlers.insert(0, TruncatingFileHandler(
             os.path.join(LOG_DIR, 'dca_bot.log'),
-            maxBytes=10 * 1024 * 1024,
-            backupCount=5,
+            maxBytes=LOG_MAX_BYTES,
+            backupCount=0,
             encoding='utf-8',
         ))
     except OSError as error:

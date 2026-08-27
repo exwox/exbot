@@ -75,6 +75,8 @@ class LogEvent(str, Enum):
     RECOVERY = "RECOVERY"
     API_ERROR = "API_ERROR"
     CONFIG_CHANGE = "CONFIG_CHANGE"
+    PRICE_SIGNAL = "PRICE_SIGNAL"
+    RSI_SIGNAL = "RSI_SIGNAL"
 
 # ============================================================
 # Strategy Types

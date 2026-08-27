@@ -21,6 +21,7 @@ from config.settings import (
     API_CIRCUIT_FAILURE_THRESHOLD,
     API_CIRCUIT_COOLDOWN_SECONDS,
     MAX_ACCOUNT_EXPOSURE_IDR,
+    TELEGRAM_PRICE_CHANGE_PERCENT,
 )
 from utils.redaction import redact_sensitive
 
@@ -75,6 +76,8 @@ class BotWorker:
         self._current_tick_id = ''
         self._current_cycle_id = ''
         self._current_order_client_id = ''
+        self._telegram_reference_price: Optional[float] = None
+        self._telegram_rsi_zone = 'NEUTRAL'
         self._logger = logging.getLogger(f"Worker-{bot_id}")
 
     def update_strategy_config(self, strategy_config: dict):
@@ -131,6 +134,8 @@ class BotWorker:
             self._log(LogEvent.API_ERROR,
                       "Worker is still completing its current tick; order cancellation deferred",
                       level="WARNING")
+            self._log(LogEvent.BOT_STOP,
+                      f"Bot stop requested for {self.pair}; final order cancellation is pending")
             self._update_bot_status(BotStatus.STOPPED)
             return
         # A Stop command must not leave the bot's TP/SO orders working on the
@@ -154,6 +159,7 @@ class BotWorker:
         if self.status == BotStatus.PAUSED:
             self.status = BotStatus.RUNNING
             self._update_bot_status(BotStatus.RUNNING)
+            self._log(LogEvent.BOT_START, f"Bot resumed for {self.pair}")
 
     def reset_active_position(self):
         """Manually clear/reset active position and cancel open orders"""
@@ -569,11 +575,57 @@ class BotWorker:
         if self._circuit_is_open():
             return
 
+        self._emit_market_signals(current_price, rsi)
+
         # Evaluate strategy
         decision = self.strategy.evaluate(state, current_price, rsi)
 
         # Execute decision
         self._execute_decision(decision, state, current_price)
+
+    def _emit_market_signals(self, current_price: float,
+                             rsi: Optional[float]):
+        """Persist anti-spam market events for the Telegram feed.
+
+        Price is emitted only after moving materially from the last notified
+        reference. RSI is emitted only when entering an overbought/oversold
+        zone, not on every worker tick.
+        """
+        if self._telegram_reference_price is None:
+            self._telegram_reference_price = current_price
+        else:
+            reference = self._telegram_reference_price
+            change = ((current_price - reference) / reference * 100
+                      if reference > 0 else 0)
+            if abs(change) >= TELEGRAM_PRICE_CHANGE_PERCENT:
+                direction = 'naik' if change > 0 else 'turun'
+                self._log(
+                    LogEvent.PRICE_SIGNAL,
+                    f"Harga {self.pair.upper()} {direction} {abs(change):.2f}% "
+                    f"menjadi Rp {current_price:,.0f}",
+                )
+                self._telegram_reference_price = current_price
+
+        zone = 'NEUTRAL'
+        if rsi is not None and rsi <= self.strategy.rsi_oversold:
+            zone = 'OVERSOLD'
+        elif rsi is not None and rsi >= self.strategy.rsi_overbought:
+            zone = 'OVERBOUGHT'
+
+        if zone != self._telegram_rsi_zone:
+            if zone == 'OVERSOLD':
+                self._log(
+                    LogEvent.RSI_SIGNAL,
+                    f"RSI {self.pair.upper()} memasuki OVERSOLD: {rsi:.2f} "
+                    f"(batas {self.strategy.rsi_oversold})",
+                )
+            elif zone == 'OVERBOUGHT':
+                self._log(
+                    LogEvent.RSI_SIGNAL,
+                    f"RSI {self.pair.upper()} memasuki OVERBOUGHT: {rsi:.2f} "
+                    f"(batas {self.strategy.rsi_overbought})",
+                )
+            self._telegram_rsi_zone = zone
 
     def _is_simulated_position(self, position: dict) -> bool:
         """Use the durable cycle mode before legacy pseudo-order markers."""

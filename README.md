@@ -81,13 +81,25 @@ LIVE_TRADING_BOT_IDS=
 LIVE_MIN_DRY_RUN_CYCLES=1
 API_CIRCUIT_FAILURE_THRESHOLD=5
 API_CIRCUIT_COOLDOWN_SECONDS=120
+TELEGRAM_PRICE_CHANGE_PERCENT=5
+TELEGRAM_DIGEST_HOUR=8
+TELEGRAM_TIMEZONE=Asia/Jakarta
+TELEGRAM_MAX_MESSAGES_PER_RUN=1
 BACKUP_ENCRYPTION_KEY=<secret backup terpisah>
 BACKUP_DIR=backups
 DOCKER_LOG_MAX_SIZE=10m
 DOCKER_LOG_MAX_FILES=5
 BACKUP_RETENTION=14
+XBOT_BIND_ADDRESS=127.0.0.1
+XBOT_HOST_PORT=5000
 ADMIN_EMAIL=<email admin>
 ```
+
+Telegram mengirim event transaksi/status secara langsung, sinyal harga setelah
+perubahan minimum `TELEGRAM_PRICE_CHANGE_PERCENT`, sinyal RSI hanya saat masuk
+zona oversold/overbought, serta ringkasan saldo/profit harian dan mingguan pada
+jam `TELEGRAM_DIGEST_HOUR`. Perintah baca-saja yang tersedia: `/status`,
+`/balance`, `/price`, dan `/report`.
 
 ### 3. Setup Database
 
@@ -95,6 +107,10 @@ ADMIN_EMAIL=<email admin>
 ```bash
 docker compose up -d --build
 ```
+
+Secara default Compose hanya mempublikasikan dashboard ke
+`127.0.0.1:5000`. Gunakan reverse proxy HTTPS untuk akses jarak jauh. Ubah
+`XBOT_BIND_ADDRESS=0.0.0.0` hanya jika firewall host sudah membatasi akses.
 
 **Opsi B: Manual via Dashboard**
 1. Jalankan `bash run.sh`
@@ -158,8 +174,8 @@ API keys **tidak disimpan di config.py**. Sekarang disimpan di:
 Backup database, lalu periksa migrasi:
 
 ```bash
-python3 scripts/migrate_credentials.py --dry-run
-python3 scripts/migrate_credentials.py
+bash scripts/run_python.sh scripts/migrate_credentials.py --dry-run
+bash scripts/run_python.sh scripts/migrate_credentials.py
 ```
 
 ## 📊 Fitur

@@ -897,17 +897,13 @@
         }
 
         async function fetchPythonLogs() {
-            if (!sessionToken) return;
-
             const limit = document.getElementById('lineLimit').value;
             const level = document.getElementById('levelFilter').value;
             const search = document.getElementById('searchInput').value;
 
             try {
                 const query = new URLSearchParams({ limit, level, search });
-                const res = await fetch(`/api/admin/python-logs?${query}`, {
-                    headers: { 'Authorization': `Bearer ${sessionToken}` }
-                });
+                const res = await fetch(`/api/admin/python-logs?${query}`);
                 const result = await res.json();
 
                 if (result.success) {

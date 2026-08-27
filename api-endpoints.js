@@ -696,11 +696,10 @@ router.post('/settings', async (req, res) => {
         // Update Telegram config if provided
         if (req.body.telegram_config) {
             try {
-                const result = await db.setTelegramConfig(
-                    req.user.id,
-                    req.body.telegram_config.bot_token,
-                    req.body.telegram_config.enabled === true
-                );
+                const result = await db.setTelegramConfig(req.user.id, {
+                    botToken: req.body.telegram_config.bot_token,
+                    enabled: req.body.telegram_config.enabled === true
+                });
                 res.json({ success: true, telegram: result });
                 return;
             } catch (e) {
@@ -712,6 +711,122 @@ router.post('/settings', async (req, res) => {
         res.json({ success: true, message: 'Settings updated successfully' });
     } catch (e) {
         res.status(e.statusCode || 500).json({ success: false, error: e.message });
+    }
+});
+
+// ============================================================
+// Telegram Integration Endpoints
+// ============================================================
+
+router.get('/telegram/config', async (req, res) => {
+    try {
+        await ensureInit();
+        const config = await db.getTelegramConfig(req.user.id);
+        res.json({ success: true, ...config });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+router.post('/telegram/config', async (req, res) => {
+    try {
+        await ensureInit();
+        const { enabled, bot_token } = req.body;
+        const config = await db.setTelegramConfig(req.user.id, {
+            botToken: bot_token,
+            enabled: enabled
+        });
+        res.json({
+            success: true,
+            message: 'Konfigurasi Telegram disimpan.',
+            ...config
+        });
+    } catch (e) {
+        res.status(400).json({ success: false, error: e.message });
+    }
+});
+
+router.delete('/telegram/config', async (req, res) => {
+    try {
+        await ensureInit();
+        const config = await db.setTelegramConfig(req.user.id, {
+            enabled: false
+        });
+        res.json({
+            success: true,
+            message: 'Notifikasi Telegram dinonaktifkan.',
+            ...config
+        });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+router.post('/telegram/link-code', async (req, res) => {
+    try {
+        await ensureInit();
+        const codeData = await db.createTelegramLinkCode(req.user.id);
+        res.json({
+            success: true,
+            code: codeData.code,
+            expires_at: codeData.expires_at
+        });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+router.post('/telegram/consume', async (req, res) => {
+    try {
+        await ensureInit();
+        const code = String(req.body?.code || '')
+            .replace(/^\/start\s+/i, '')
+            .trim()
+            .toUpperCase();
+        if (!code) {
+            return res.status(400).json({ success: false, error: 'Kode link diperlukan.' });
+        }
+        const pending = await db.peekTelegramLinkCode(code, req.user.id);
+        if (!pending) {
+            return res.status(400).json({ success: false, error: 'Kode link tidak valid atau bukan milik Anda.' });
+        }
+        if (pending.status !== 'PENDING') {
+            return res.status(400).json({ success: false, error: 'Kode link sudah digunakan atau kedaluwarsa.' });
+        }
+
+        res.json({
+            success: true,
+            message: 'Silakan buka bot Telegram Anda dan kirim pesan: `/start ' + code + '` untuk mengaktifkan chat.'
+        });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+router.post('/telegram/test', async (req, res) => {
+    try {
+        await ensureInit();
+        const config = await db.getTelegramConfig(req.user.id);
+        if (!config.enabled || !config.has_token) {
+            return res.status(400).json({ success: false, error: 'Konfigurasi Telegram belum lengkap atau dinonaktifkan.' });
+        }
+        if (!config.chat_id) {
+            return res.status(400).json({ success: false, error: 'Belum ada chat Telegram yang terhubung.' });
+        }
+
+        await db.enqueueTelegramNotification({
+            userId: req.user.id,
+            kind: 'TEST',
+            title: 'TEST PING',
+            message: 'Halo! Ini adalah notifikasi uji coba dari trading bot XBot Anda.'
+        });
+
+        res.json({
+            success: true,
+            message: 'Uji coba notifikasi telah dimasukkan ke antrean pengiriman.'
+        });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
     }
 });
 

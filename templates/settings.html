@@ -10,13 +10,13 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        :root { --bg-base:#0d1117; --bg-surface:#161b22; --bg-card:#1c2333; --border-soft:rgba(99,110,140,.18); --accent-indigo:#6c63ff; --accent-teal:#38b2ac; --text-primary:#e2e8f0; --text-secondary:#94a3b8; --shadow-card:0 4px 24px rgba(0,0,0,.35); --radius-lg:14px; --radius-md:10px; }
+        :root { --bg-base:#0d1117; --bg-surface:#161b22; --bg-card:#1c2333; --border-soft:rgba(148,163,184,.32); --accent-indigo:#a7a3ff; --accent-teal:#5eead4; --text-primary:#f1f5f9; --text-secondary:#c0cad8; --shadow-card:0 4px 24px rgba(0,0,0,.35); --radius-lg:14px; --radius-md:10px; color-scheme:dark; }
         body {
             font-family: 'Inter', system-ui, sans-serif;
             background: var(--bg-base);
             background-image: radial-gradient(ellipse 80% 50% at 20% -10%, rgba(108,99,255,.12), transparent 60%), radial-gradient(ellipse 60% 40% at 80% 110%, rgba(56,178,172,.08), transparent 60%);
             min-height: 100vh;
-            color: #e2e8f0;
+            color: var(--text-primary);
         }
 
         .settings-card {
@@ -24,30 +24,50 @@
             border: 1px solid rgba(99, 110, 140, 0.18);
             border-radius: 14px;
             box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+            color: var(--text-primary);
         }
 
         .form-control,
         .form-select {
-            background: #161b22;
-            border: 1px solid rgba(99, 110, 140, 0.18);
-            color: #e2e8f0;
+            background-color: #111827 !important;
+            border: 1px solid #526079;
+            color: #f8fafc !important;
+            -webkit-text-fill-color: #f8fafc;
+            caret-color: #ffffff;
         }
 
         .form-control:focus,
         .form-select:focus {
-            background: #161b22;
-            border-color: #6c63ff;
-            color: #e2e8f0;
-            box-shadow: 0 0 0 0.2rem rgba(108, 99, 255, 0.25);
+            background-color: #111827 !important;
+            border-color: #a7a3ff;
+            color: #ffffff !important;
+            -webkit-text-fill-color: #ffffff;
+            box-shadow: 0 0 0 0.2rem rgba(167, 163, 255, 0.25);
         }
 
-        .form-control::placeholder { color: #94a3b8; opacity: 1; }
-        .form-select option { background: #161b22; color: #f1f5f9; }
-        .form-label, .form-check-label { color: #e2e8f0; }
-        .text-muted, .text-secondary, small.text-muted { color: #aeb8c7 !important; }
+        .form-control::placeholder { color: #aebbd0 !important; opacity: 1; -webkit-text-fill-color:#aebbd0; }
+        .form-control:disabled,
+        .form-control[readonly],
+        .form-select:disabled {
+            background-color: #202a3a !important;
+            border-color: #59677f !important;
+            color: #dbe5f2 !important;
+            -webkit-text-fill-color: #dbe5f2 !important;
+            opacity: 1 !important;
+        }
+        .form-control:-webkit-autofill,
+        .form-control:-webkit-autofill:hover,
+        .form-control:-webkit-autofill:focus {
+            -webkit-text-fill-color: #f8fafc !important;
+            -webkit-box-shadow: 0 0 0 1000px #111827 inset !important;
+            box-shadow: 0 0 0 1000px #111827 inset !important;
+        }
+        .form-select option { background: #111827; color: #f8fafc; }
+        .form-label, .form-check-label { color: #f1f5f9 !important; font-weight: 500; }
+        .text-muted, .text-secondary, small.text-muted { color: var(--text-secondary) !important; }
         .navbar { background: var(--bg-surface) !important; border: 1px solid var(--border-soft); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); padding: 12px 20px; }
         .navbar-brand { color: var(--accent-indigo) !important; font-weight: 700; letter-spacing: .04em; }
-        .navbar .nav-link { color: #cbd5e1; }
+        .navbar .nav-link { color: #d7e0ec; }
         .navbar .nav-link:hover, .navbar .nav-link.active { color: #fff; }
 
         .btn-primary {
@@ -73,7 +93,8 @@
         }
 
         .text-accent {
-            color: #6c63ff;
+            color: var(--accent-indigo) !important;
+            text-shadow: 0 0 18px rgba(167, 163, 255, 0.12);
         }
 
         .account-item {
@@ -82,7 +103,19 @@
             border-radius: 10px;
             padding: 15px;
             margin-bottom: 10px;
+            color: var(--text-primary);
         }
+
+        .btn-outline-primary { color:#b8b5ff; border-color:#8f89ff; }
+        .btn-outline-primary:hover { color:#0d1117; background:#a7a3ff; border-color:#a7a3ff; }
+        .btn-outline-info { color:#67e8f9; border-color:#22d3ee; }
+        .btn-outline-warning { color:#fcd34d; border-color:#f59e0b; }
+        .btn:disabled, .btn.disabled { color:#cbd5e1 !important; border-color:#64748b !important; opacity:.72; }
+        .badge { color:#fff !important; }
+        .alert-success { color:#d1fae5; background:#123c2f; border-color:#2f7d62; }
+        .alert-danger { color:#fee2e2; background:#491c24; border-color:#a23b4b; }
+        .alert-warning { color:#fef3c7; background:#493716; border-color:#a67c23; }
+        .alert-info { color:#cffafe; background:#153b46; border-color:#2b7d8d; }
 
         .badge-active {
             background: #28a745;
@@ -114,6 +147,7 @@
 
         .capital-metric strong {
             font-size: 0.98rem;
+            color: #f8fafc;
         }
 
         .capital-progress {
@@ -251,27 +285,33 @@
                             </div>
                             <div class="col-md-12 mt-3">
                                 <h6 class="text-accent small mb-2">📱 Notifikasi Telegram</h6>
-                                <div class="form-check form-switch small">
+                                <div class="form-check form-switch small mb-2">
                                     <input id="telegramEnabled" class="form-check-input" name="telegram_enabled" type="checkbox" onchange="toggleTelegramConfig()">
                                     <label class="form-check-label" for="telegramEnabled">Aktifkan notifikasi ke Telegram</label>
                                 </div>
-                                <div class="row g-2 small text-secondary">
-                                    <div class="col-6">
-                                        <input id="telegramToken" class="form-control form-control-sm" type="text" placeholder="Token BotFather" disabled>
+                                <div class="row g-2 small text-secondary mb-2">
+                                    <div class="col-md-8">
+                                        <div class="input-group input-group-sm">
+                                            <input id="telegramToken" class="form-control" type="text" placeholder="Token BotFather (contoh: 123456:ABC...)">
+                                            <button id="saveTelegramTokenBtn" class="btn btn-primary" type="button" onclick="saveTelegramToken()">Simpan Token</button>
+                                        </div>
                                     </div>
-                                    <div class="col-6">
-                                        <input id="telegramChatId" class="form-control form-control-sm" type="text" placeholder="Chat ID (opsional)" disabled>
+                                    <div class="col-md-4">
+                                        <input id="telegramChatId" class="form-control form-control-sm" type="text" placeholder="Chat ID (terikat otomatis)" disabled>
                                     </div>
                                 </div>
                                 <div class="row g-2 small text-secondary">
                                     <div class="col-4">
-                                        <button id="genLinkCode" class="btn btn-link text-accent tiny-btn px-2 py-1 rounded" onclick="generateTelegramLinkCode()" style="font-size:0.75rem;">Kode Link</button>
+                                        <button id="genLinkCode" class="btn btn-outline-primary btn-sm w-100" type="button" onclick="generateTelegramLinkCode()">Dapatkan Kode Link</button>
                                     </div>
                                     <div class="col-8">
-                                        <input id="telegramLinkCode" class="form-control form-control-sm" type="text" placeholder="Masukkan kode dari Telegram" disabled>
+                                        <div class="input-group input-group-sm">
+                                            <input id="telegramLinkCode" class="form-control" type="text" placeholder="Gunakan kode ini di Telegram: /start <KODE>" disabled>
+                                            <button id="testTelegramNotifBtn" class="btn btn-outline-info" type="button" onclick="testTelegramNotification()">Kirim Test</button>
+                                        </div>
                                     </div>
                                 </div>
-                                <small class="text-muted d-block mt-1">Token disimpan terenkripsi di database. Bot harus <code>STOPPED</code> sebelum mengubah mode.</small>
+                                <small class="text-muted d-block mt-1">Token disimpan terenkripsi di database. Hubungkan bot dengan klik "Dapatkan Kode Link" lalu kirim kode tersebut ke bot Telegram Anda.</small>
                             </div>
                                  <div class="col-md-4"><label class="form-label small">RSI Period</label><input class="form-control" name="rsi_period" type="number" min="1" step="1" required></div>
                                  <div class="col-md-4"><label class="form-label small">RSI Oversold</label><input class="form-control" name="rsi_oversold" type="number" min="0" max="100" step="1" required></div>
@@ -719,85 +759,101 @@
         form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
-    // --- Telegram Notification Setup ---
-    window.toggleTelegramConfig = async function() {
-        const enabled = document.getElementById('telegramEnabled')?.checked;
-        try {
-            const response = await fetch('/api/telegram/config', {
-                method: enabled ? 'POST' : 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ enabled })
-            });
-            const result = await response.json();
-            if (!result.success) throw new Error(result.error || 'Gagal update config');
-            showSettingsAlert(result.message, result.enabled ? 'success' : 'info');
-            // refresh halaman atau toggle UI
-            document.getElementById('telegramEnabled').checked = result.enabled;
-        } catch (e) {
-            showSettingsAlert(e.message || 'Gagal update config Telegram', 'danger');
-            document.getElementById('telegramEnabled').checked = !enabled;
-        }
-    };
-
-    async function loadTelegramConfig() {
-        try {
-            const response = await fetch('/api/telegram/config');
-            const result = await response.json();
-            if (result.success) {
-                document.getElementById('telegramEnabled').checked = result.enabled || false;
-                document.getElementById('telegramToken').value = result.bot_token ? '(terisi)' : '';
-                document.getElementById('telegramChatId').value = result.chat_id || '';
+        // --- Telegram Notification Setup ---
+        window.saveTelegramToken = async function() {
+            const tokenInput = document.getElementById('telegramToken');
+            const token = tokenInput.value.trim();
+            if (!token) {
+                return showSettingsAlert('Masukkan token Telegram terlebih dahulu.', 'warning');
             }
-        } catch (e) {
-            console.error('Gagal load config Telegram:', e);
-        }
-    }
+            try {
+                const response = await fetch('/api/telegram/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bot_token: token })
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || `HTTP ${response.status}`);
+                }
+                tokenInput.value = '';
+                showSettingsAlert('Token Telegram berhasil disimpan.', 'success');
+                await loadTelegramConfig();
+            } catch (error) {
+                showSettingsAlert(error.message || 'Gagal menyimpan token Telegram.', 'danger');
+            }
+        };
 
-    // Generate link code untuk ikat chat
-    window.generateTelegramLinkCode = async function() {
-        try {
-            const response = await fetch('/api/telegram/link-code', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-            const result = await response.json();
-            if (!result.success) throw new Error(result.error || 'Gagal generate kode');
-            // Tampilkan kode ke user (bisa pakai alert atau modal)
-            showSettingsAlert(`Kode link: ${result.code} (expires ${result.expires_at}). Bagikan ke user Telegram.`, 'info');
-        } catch (e) {
-            showSettingsAlert(e.message || 'Gagal generate kode', 'danger');
-        }
-    };
+        window.toggleTelegramConfig = async function() {
+            const toggle = document.getElementById('telegramEnabled');
+            const enabled = toggle.checked;
+            try {
+                const response = await fetch('/api/telegram/config', {
+                    method: enabled ? 'POST' : 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled })
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || `HTTP ${response.status}`);
+                }
+                showSettingsAlert(result.message || 'Konfigurasi Telegram diperbarui.', result.enabled ? 'success' : 'info');
+                await loadTelegramConfig();
+            } catch (error) {
+                toggle.checked = !enabled;
+                showSettingsAlert(error.message || 'Gagal memperbarui Telegram.', 'danger');
+            }
+        };
 
-    // Bind kode ke chat (dijalankan user setelah klik link di Telegram)
-    window.consumeTelegramLinkCode = async function() {
-        const code = document.getElementById('telegramLinkCode').value;
-        if (!code) return showSettingsAlert('Masukkan kode terlebih dahulu', 'warning');
-        try {
-            const response = await fetch('/api/telegram/consume', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code })
-            });
-            const result = await response.json();
-            if (!result.success) throw new Error(result.error || 'Gagal bind kode');
-            showSettingsAlert(result.message, 'success');
-            // refresh config setelah bind
-            await loadTelegramConfig();
-        } catch (e) {
-            showSettingsAlert(e.message || 'Gagal bind kode', 'danger');
+        async function loadTelegramConfig() {
+            try {
+                const response = await fetch('/api/telegram/config');
+                const result = await response.json();
+                if (!response.ok || !result.success) return;
+                document.getElementById('telegramEnabled').checked = !!result.enabled;
+                document.getElementById('telegramToken').placeholder = result.has_token
+                    ? '●●●●●●●●●● (Tersimpan)'
+                    : 'Token BotFather (contoh: 123456:ABC...)';
+                document.getElementById('telegramChatId').value = result.chat_id || '';
+            } catch (error) {
+                console.error('Gagal memuat konfigurasi Telegram:', error);
+            }
         }
-    };
 
-    // Ambil config saat halaman dimuat
-    loadTelegramConfig();
-            setCapitalRecommendation([
-                'Rekomendasi sedang dihitung dari saldo akun bot ini.'
-            ]);
-            updateDcaCapitalPlanner();
-            loadDcaCapitalBalance();
-            form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        
+        window.generateTelegramLinkCode = async function() {
+            try {
+                const response = await fetch('/api/telegram/link-code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || `HTTP ${response.status}`);
+                }
+                document.getElementById('telegramLinkCode').value = `/start ${result.code}`;
+                showSettingsAlert('Kirim kode tersebut ke bot Telegram Anda sebelum masa berlakunya habis.', 'success');
+            } catch (error) {
+                showSettingsAlert(error.message || 'Gagal membuat kode link.', 'danger');
+            }
+        };
+
+        window.testTelegramNotification = async function() {
+            try {
+                const response = await fetch('/api/telegram/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || `HTTP ${response.status}`);
+                }
+                showSettingsAlert(result.message || 'Notifikasi test dimasukkan ke antrean.', 'success');
+            } catch (error) {
+                showSettingsAlert(error.message || 'Gagal mengirim notifikasi test.', 'danger');
+            }
+        };
+
+        loadTelegramConfig();
 
         function toggleDcaScales() {
             const martingale = document.getElementById('martingaleEnabled')?.checked;

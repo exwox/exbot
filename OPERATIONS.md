@@ -148,8 +148,8 @@ lacking both exchange/client IDs still require the orphan-order procedure.
 ## Credential migration
 
 ```bash
-python3 scripts/migrate_credentials.py --dry-run
-python3 scripts/migrate_credentials.py
+bash scripts/run_python.sh scripts/migrate_credentials.py --dry-run
+bash scripts/run_python.sh scripts/migrate_credentials.py
 ```
 
 The migration is transactional and idempotent. The application can read v2,
@@ -279,7 +279,9 @@ only an alert owned by that user. Administrators additionally see and may
 acknowledge process-level restart alerts. Alert messages and metadata pass
 through the same central secret redaction as logs.
 
-Python rotates `logs/dca_bot.log` at 10 MiB and retains five old files. Docker
+Python truncates `logs/dca_bot.log` in place at 1 MiB by default and does not
+create rotated backup files. Override the hard limit with
+`PYTHON_LOG_MAX_BYTES`. Docker
 rotates combined container stdout (including Node) using `DOCKER_LOG_MAX_SIZE`
 and `DOCKER_LOG_MAX_FILES`, defaulting to `10m` and `5`. External delivery to a
 pager, chat service, or monitoring platform still requires operator-managed
