@@ -11,6 +11,7 @@ const { redactSensitive } = require('./log-redaction');
 const { strategyDefaults } = require('./strategy-defaults');
 const {
     liveTradingGate,
+      botControl = require("./bot-control"),
     liveTradingReadiness,
     requireLiveTrading
 } = require('./live-trading-policy');
@@ -690,6 +691,22 @@ router.post('/settings', async (req, res) => {
             if (!strategy) return res.status(404).json({ success: false, error: 'Strategy not found' });
             Object.assign(strategy, sanitizeStrategyUpdates(settings));
             await db.updateStrategy(strategy);
+        }
+
+        // Update Telegram config if provided
+        if (req.body.telegram_config) {
+            try {
+                const result = await db.setTelegramConfig(
+                    req.user.id,
+                    req.body.telegram_config.bot_token,
+                    req.body.telegram_config.enabled === true
+                );
+                res.json({ success: true, telegram: result });
+                return;
+            } catch (e) {
+                res.status(500).json({ success: false, error: e.message });
+                return;
+            }
         }
 
         res.json({ success: true, message: 'Settings updated successfully' });

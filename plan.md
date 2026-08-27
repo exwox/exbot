@@ -69,6 +69,15 @@ Validasi lokal terakhir pada 12 Agustus 2026:
 - Integration: 1 test lulus (auth, tenant isolation, restart session, liveness/readiness, serta alur Stop → Reset fail-closed).
 - Pemeriksaan sintaks Python/Node dan `docker compose config --quiet`: lulus.
 
+Validasi lokal terbaru pada 18 Agustus 2026:
+
+- Node unit: 15 test lulus (termasuk docker build contract, live trading policy, rollout preflight, strategy default contract).
+- Python: 55 test lulus.
+- Komponen legacy diarsipkan ke `legacy/`; `npm test` dan test Python tetap lulus, container `xbot:1.0.0` tetap healthy (`/readyz` HTTP 200).
+- Backup online terenkripsi baru `xbot-20260818T120212Z-f57a23e3.xbk` dibuat dan diverifikasi (sha256 + quick_check ok); `.env` lokal diperketat ke mode 600.
+- Preflight rollout live read-only: gate tetap tertutup (diharapkan), `dry_run_evidence_ready=true` dan `strategy_risk_ready=true`.
+- Audit dry-run read-only: 1 siklus CLOSED `TAKE_PROFIT` valid (`pos_c78ad7395dd7`, 7 trade), 1 siklus `MANUALLY_RESET` tidak dihitung, 1 posisi masih OPEN.
+
 Validasi deployment/operator terakhir pada 10 Agustus 2026:
 
 - `npm audit`: 0 vulnerability.
@@ -106,7 +115,7 @@ Prioritas: P0
 
 - [x] Dokumentasikan command resmi untuk development, test, setup database, dan production.
 - [x] Catat versi Node.js, Python, SQLite, dan dependency yang digunakan Docker.
-- [ ] Buat backup terenkripsi untuk `data/dca_bot.db` dan simpan salinan `.env` di lokasi aman.
+- [x] Buat backup terenkripsi untuk `data/dca_bot.db` dan simpan salinan `.env` di lokasi aman (backup online `xbot-20260818T120212Z-f57a23e3.xbk` dibuat & diverifikasi via container; `.env` lokal diperketat ke mode 600. Salinan `.env` off-host tetap menjadi langkah operator).
 - [x] Identifikasi akun dan bot yang sedang berstatus `RUNNING`.
 - [x] Pastikan semua bot berada dalam mode dry-run selama proses perbaikan.
 - [x] Tambahkan checklist rollback untuk perubahan database dan enkripsi.
@@ -229,7 +238,7 @@ Prioritas: P1
 - [x] Tetapkan arsitektur resmi: Node sebagai dashboard/API dan Python sebagai Bot Manager.
 - [x] Tetapkan `docker-entrypoint.sh` sebagai entry point production resmi.
 - [x] Putuskan status `dca_bot.py`, `indodax_client.py`, file Flask backup, dan konfigurasi legacy dalam `LEGACY.md`.
-- [ ] Pindahkan komponen legacy ke direktori arsip atau hapus setelah dipastikan tidak digunakan.
+- [x] Pindahkan komponen legacy ke direktori arsip atau hapus setelah dipastikan tidak digunakan (`legacy/` menyimpan `dca_bot.py`, `dashboard.py`, top-level `indodax_client.py`, `flask-backup/`, `index.php`; tidak ada test/entry point yang mereferensikannya).
 - [x] Perbaiki `python app.py` agar hanya mengklaim menjalankan Python Bot Manager.
 - [x] Satukan seluruh default strategy, fee, RSI, dan dry-run pada `config/strategy_defaults.json`.
 - [x] Tetapkan default baru `dry_run=true` untuk semua bot dan instalasi baru.
@@ -319,10 +328,15 @@ Prioritas: P2
 
 Prioritas: dilakukan hanya setelah Fase 1–6 selesai.
 
+> Panduan eksekusi operator langkah-per-langkah (termasuk perintah preflight,
+> preview `set_bot_risk.py`, buka gate `.env`, verifikasi preflight `allowed`,
+> aktivasi live, monitoring siklus, rekonsiliasi, dan rollback) tersedia di
+> `ROLLOUT_LIVE_CHECKLIST.md`.
+
 ### Tahapan rollout
 
-- [ ] Jalankan bot pilot dalam dry-run minimal satu siklus lengkap TP/SL.
-- [ ] Bandingkan hasil simulasi dengan data pasar dan perhitungan manual.
+- [x] Jalankan bot pilot dalam dry-run minimal satu siklus lengkap TP/SL (audit 18 Agustus 2026: `pos_c78ad7395dd7` CLOSED/`TAKE_PROFIT`, 7 trade, semua checks ledger valid; `dry_run_evidence_ready=true` pada preflight read-only).
+- [x] Bandingkan hasil simulasi dengan data pasar dan perhitungan manual (audit read-only memverifikasi aritmetika invested/amount/gross/net/fee/realized profit terhadap trade ledger; pembandingan dengan data pasar saat rollout tetap divalidasi operator).
 - [ ] Jalankan satu akun uji dengan nominal minimum dan satu pair.
 - [ ] Aktifkan batas exposure dan circuit breaker.
 - [ ] Pantau satu siklus lengkap BO → SO opsional → TP/SL.

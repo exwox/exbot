@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Settings - Exbot DCA Bot</title>
+    <link rel="icon" href="/favicon.ico" sizes="any">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -247,6 +248,31 @@
                                 <div class="col-md-4"><div class="d-flex align-items-center justify-content-between gap-2"><label class="form-label small mb-1">Step Scale (x)</label><div class="form-check form-switch small mb-1"><input id="stepScaleEnabled" class="form-check-input" name="step_scale_enabled" type="checkbox" onchange="toggleDcaScales()"><label class="form-check-label" for="stepScaleEnabled">Step Scale aktif</label></div></div><input id="deviationScale" class="form-control" name="deviation_scale" type="number" min="1" step="0.1" value="1.5"></div>
                                 <div class="col-md-4"><label class="form-label small">Take Profit (%)</label><input class="form-control" name="take_profit_percent" type="number" min="0" step="0.1" required></div>
                                 <div class="col-md-4"><label class="form-label small">Stop Loss (%)</label><input class="form-control" name="stop_loss_percent" type="number" min="0" step="0.1" required></div>
+                            </div>
+                            <div class="col-md-12 mt-3">
+                                <h6 class="text-accent small mb-2">📱 Notifikasi Telegram</h6>
+                                <div class="form-check form-switch small">
+                                    <input id="telegramEnabled" class="form-check-input" name="telegram_enabled" type="checkbox" onchange="toggleTelegramConfig()">
+                                    <label class="form-check-label" for="telegramEnabled">Aktifkan notifikasi ke Telegram</label>
+                                </div>
+                                <div class="row g-2 small text-secondary">
+                                    <div class="col-6">
+                                        <input id="telegramToken" class="form-control form-control-sm" type="text" placeholder="Token BotFather" disabled>
+                                    </div>
+                                    <div class="col-6">
+                                        <input id="telegramChatId" class="form-control form-control-sm" type="text" placeholder="Chat ID (opsional)" disabled>
+                                    </div>
+                                </div>
+                                <div class="row g-2 small text-secondary">
+                                    <div class="col-4">
+                                        <button id="genLinkCode" class="btn btn-link text-accent tiny-btn px-2 py-1 rounded" onclick="generateTelegramLinkCode()" style="font-size:0.75rem;">Kode Link</button>
+                                    </div>
+                                    <div class="col-8">
+                                        <input id="telegramLinkCode" class="form-control form-control-sm" type="text" placeholder="Masukkan kode dari Telegram" disabled>
+                                    </div>
+                                </div>
+                                <small class="text-muted d-block mt-1">Token disimpan terenkripsi di database. Bot harus <code>STOPPED</code> sebelum mengubah mode.</small>
+                            </div>
                                  <div class="col-md-4"><label class="form-label small">RSI Period</label><input class="form-control" name="rsi_period" type="number" min="1" step="1" required></div>
                                  <div class="col-md-4"><label class="form-label small">RSI Oversold</label><input class="form-control" name="rsi_oversold" type="number" min="0" max="100" step="1" required></div>
                                  <div class="col-md-4"><label class="form-label small">Mode Entry Awal (Start Bot)</label><select class="form-select" name="initial_entry_mode"><option value="MARKET">⚡ Market Buy Langsung</option><option value="LIMIT">🎯 Limit Buy Langsung</option><option value="RSI">📊 Tunggu RSI Oversold (Market Buy)</option><option value="RSI_LIMIT">📊 Tunggu RSI Oversold (Limit Buy)</option></select></div>
@@ -684,14 +710,94 @@
             currentDcaBalance = null;
             currentDcaCapitalPlan = null;
             document.getElementById('dcaBalanceStatus').textContent =
-                'Menyiapkan perhitungan modal...';
+            'Menyiapkan perhitungan modal...';
+        setCapitalRecommendation([
+            'Rekomendasi sedang dihitung dari saldo akun bot ini.'
+        ]);
+        updateDcaCapitalPlanner();
+        loadDcaCapitalBalance();
+        form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // --- Telegram Notification Setup ---
+    window.toggleTelegramConfig = async function() {
+        const enabled = document.getElementById('telegramEnabled')?.checked;
+        try {
+            const response = await fetch('/api/telegram/config', {
+                method: enabled ? 'POST' : 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled })
+            });
+            const result = await response.json();
+            if (!result.success) throw new Error(result.error || 'Gagal update config');
+            showSettingsAlert(result.message, result.enabled ? 'success' : 'info');
+            // refresh halaman atau toggle UI
+            document.getElementById('telegramEnabled').checked = result.enabled;
+        } catch (e) {
+            showSettingsAlert(e.message || 'Gagal update config Telegram', 'danger');
+            document.getElementById('telegramEnabled').checked = !enabled;
+        }
+    };
+
+    async function loadTelegramConfig() {
+        try {
+            const response = await fetch('/api/telegram/config');
+            const result = await response.json();
+            if (result.success) {
+                document.getElementById('telegramEnabled').checked = result.enabled || false;
+                document.getElementById('telegramToken').value = result.bot_token ? '(terisi)' : '';
+                document.getElementById('telegramChatId').value = result.chat_id || '';
+            }
+        } catch (e) {
+            console.error('Gagal load config Telegram:', e);
+        }
+    }
+
+    // Generate link code untuk ikat chat
+    window.generateTelegramLinkCode = async function() {
+        try {
+            const response = await fetch('/api/telegram/link-code', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const result = await response.json();
+            if (!result.success) throw new Error(result.error || 'Gagal generate kode');
+            // Tampilkan kode ke user (bisa pakai alert atau modal)
+            showSettingsAlert(`Kode link: ${result.code} (expires ${result.expires_at}). Bagikan ke user Telegram.`, 'info');
+        } catch (e) {
+            showSettingsAlert(e.message || 'Gagal generate kode', 'danger');
+        }
+    };
+
+    // Bind kode ke chat (dijalankan user setelah klik link di Telegram)
+    window.consumeTelegramLinkCode = async function() {
+        const code = document.getElementById('telegramLinkCode').value;
+        if (!code) return showSettingsAlert('Masukkan kode terlebih dahulu', 'warning');
+        try {
+            const response = await fetch('/api/telegram/consume', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code })
+            });
+            const result = await response.json();
+            if (!result.success) throw new Error(result.error || 'Gagal bind kode');
+            showSettingsAlert(result.message, 'success');
+            // refresh config setelah bind
+            await loadTelegramConfig();
+        } catch (e) {
+            showSettingsAlert(e.message || 'Gagal bind kode', 'danger');
+        }
+    };
+
+    // Ambil config saat halaman dimuat
+    loadTelegramConfig();
             setCapitalRecommendation([
                 'Rekomendasi sedang dihitung dari saldo akun bot ini.'
             ]);
             updateDcaCapitalPlanner();
             loadDcaCapitalBalance();
             form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
+        
 
         function toggleDcaScales() {
             const martingale = document.getElementById('martingaleEnabled')?.checked;

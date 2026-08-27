@@ -59,6 +59,9 @@ app.use((req, res, next) => {
     next();
 });
 app.use(express.static('dashboard'));
+app.get('/favicon.ico', (req, res) => {
+    res.sendFile(path.join(__dirname, 'favicon.ico'));
+});
 
 // Initialize modules
 const Database = require('./database');
