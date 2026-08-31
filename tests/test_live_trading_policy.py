@@ -36,6 +36,16 @@ class LiveTradingRiskPolicyTest(unittest.TestCase):
     def test_any_bot_id_is_allowed_without_allowlist(self):
         self.assertTrue(self.policy(self.strategy(), bot_id='bot_unknown_123'))
 
+    def test_zero_minimum_disables_dry_run_evidence(self):
+        # LIVE_MIN_DRY_RUN_CYCLES=0 sah: real trade tanpa bukti dry-run.
+        with patch.multiple(
+                settings,
+                LIVE_TRADING_ENABLED=True,
+                MAX_ACCOUNT_EXPOSURE_IDR=100000,
+                LIVE_MIN_DRY_RUN_CYCLES=0):
+            self.assertTrue(
+                settings.live_trading_allowed_for('bot_a', 0, self.strategy()))
+
     def test_undersized_position_or_exposure_is_rejected(self):
         self.assertFalse(self.policy(self.strategy(max_position_amount=89999)))
 

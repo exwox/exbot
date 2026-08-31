@@ -44,6 +44,29 @@ test('live trading policy accepts a bounded strategy without confirmation or all
     assert.deepEqual(gate.reasons, []);
 });
 
+test('live trading policy honours zero dry-run cycle requirement', () => {
+    const environment = {
+        LIVE_TRADING_ENABLED: 'true',
+        MAX_ACCOUNT_EXPOSURE_IDR: '250000',
+        LIVE_MIN_DRY_RUN_CYCLES: '0'
+    };
+    const gate = requireLiveTrading('bot_a', 0, environment, {
+        base_order_amount: 15000,
+        safety_order_amount: 15000,
+        max_safety_orders: 5,
+        martingale_enabled: false,
+        volume_scale: 1.5,
+        stop_loss_percent: 0,
+        max_position_amount: 90000
+    });
+    assert.equal(gate.allowed, true);
+    assert.equal(gate.minimum_dry_run_cycles, 0);
+    assert.equal(gate.dry_run_evidence_ready, true);
+    // Nilai negatif tidak valid: kembali ke default 1.
+    assert.equal(liveTradingGate({ LIVE_MIN_DRY_RUN_CYCLES: '-3' })
+        .minimum_dry_run_cycles, 1);
+});
+
 test('live trading policy rejects undersized position caps and exposure', () => {
     const environment = {
         LIVE_TRADING_ENABLED: 'true',

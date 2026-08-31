@@ -125,7 +125,8 @@ dan seluruh SO yang direncanakan oleh siklus aktif.
 
 Live trading bersifat fail-closed. Setelah strategi bot memakai batas posisi
 yang cukup untuk modal siklusnya dan melewati minimal `LIVE_MIN_DRY_RUN_CYCLES`
-siklus dry-run, set `LIVE_TRADING_ENABLED=true`, lalu restart kedua runtime.
+siklus dry-run (isi `0` untuk menonaktifkan syarat bukti dry-run ini), set
+`LIVE_TRADING_ENABLED=true`, lalu restart kedua runtime.
 `LIVE_TRADING_CONFIRMATION` dan `LIVE_TRADING_BOT_IDS` tidak lagi diberlakukan
 oleh gate. Bot harus berstatus `STOPPED` ketika mode dry-run/live diubah.
 

@@ -17,8 +17,9 @@ function liveTradingGate(environment = process.env) {
     const exposureConfigured = Number.isFinite(exposureLimit) && exposureLimit > 0;
     const botIds = allowedBotIds(environment);
     const configuredMinimum = Number(environment.LIVE_MIN_DRY_RUN_CYCLES ?? 1);
+    // 0 menonaktifkan syarat bukti siklus dry-run; di luar 0-100 kembali ke 1.
     const minimumDryRunCycles = Number.isInteger(configuredMinimum)
-        && configuredMinimum >= 1 && configuredMinimum <= 100
+        && configuredMinimum >= 0 && configuredMinimum <= 100
         ? configuredMinimum
         : 1;
     const reasons = [];

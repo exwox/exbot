@@ -74,8 +74,11 @@ LIVE_TRADING_BOT_IDS = frozenset(
     value.strip() for value in os.getenv('LIVE_TRADING_BOT_IDS', '').split(',')
     if value.strip()
 )
-LIVE_MIN_DRY_RUN_CYCLES = min(
-    100, max(1, int(os.getenv('LIVE_MIN_DRY_RUN_CYCLES', '1'))))
+# 0 menonaktifkan syarat bukti siklus dry-run. Nilai di luar rentang 0-100
+# dianggap tidak valid dan kembali ke default 1.
+_configured_min_cycles = int(os.getenv('LIVE_MIN_DRY_RUN_CYCLES', '1'))
+LIVE_MIN_DRY_RUN_CYCLES = (
+    _configured_min_cycles if 0 <= _configured_min_cycles <= 100 else 1)
 
 
 def _planned_strategy_capital(strategy: dict | None) -> float:
