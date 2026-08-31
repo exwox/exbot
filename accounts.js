@@ -60,7 +60,18 @@ async function getAccount(id) {
 }
 
 // Create new account
-async function createAccount(userId, name, apiKey, apiSecret, exchange = 'Indodax') {
+function normalizeApiVersion(value, fallback = 'v1') {
+    const version = String(value || fallback).trim().toLowerCase();
+    if (!['v1', 'v2'].includes(version)) {
+        const error = new Error('Versi API Indodax harus v1 atau v2');
+        error.statusCode = 400;
+        throw error;
+    }
+    return version;
+}
+
+async function createAccount(userId, name, apiKey, apiSecret,
+    exchange = 'Indodax', apiVersion = 'v1') {
     await ensureInit();
 
     const accountId = `acc_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
@@ -72,6 +83,7 @@ async function createAccount(userId, name, apiKey, apiSecret, exchange = 'Indoda
         user_id: userId,
         name,
         exchange,
+        api_version: normalizeApiVersion(apiVersion),
         api_key_encrypted: encryptedApiKey,
         api_secret_encrypted: encryptedApiSecret,
         is_active: true,
@@ -102,6 +114,14 @@ async function updateAccount(id, updates) {
     }
     if (updates.exchange) {
         account.exchange = updates.exchange;
+    }
+    if (updates.api_version !== undefined) {
+        account.api_version = normalizeApiVersion(updates.api_version,
+            account.api_version || 'v1');
+    }
+    if (updates.api_key || updates.api_secret || updates.api_version !== undefined) {
+        account.last_connected_at = null;
+        account.last_error = null;
     }
     if (updates.is_active !== undefined) {
         account.is_active = updates.is_active;
@@ -145,7 +165,8 @@ async function getDecryptedCredentials(accountId) {
     try {
         credentials = {
             api_key: db.decrypt(account.api_key_encrypted, account.id),
-            api_secret: db.decrypt(account.api_secret_encrypted, account.id)
+            api_secret: db.decrypt(account.api_secret_encrypted, account.id),
+            api_version: normalizeApiVersion(account.api_version || 'v1')
         };
     } catch (e) {
         console.error('[ACCOUNTS] Failed to decrypt credentials:', redactSensitive(e.message));
@@ -190,7 +211,8 @@ async function testConnection(accountId) {
 
         // Import IndodaxClient
         const { IndodaxClient } = require('./indodax-client');
-        const client = new IndodaxClient(creds.api_key, creds.api_secret);
+        const client = new IndodaxClient(
+            creds.api_key, creds.api_secret, creds.api_version);
 
         // Test with getInfo
         const result = await client.get_balance();
@@ -202,6 +224,12 @@ async function testConnection(accountId) {
                 last_error: result.error
             });
             return { success: false, error: result.error };
+        }
+
+        if (creds.api_version === 'v2' && result.can_trade === false) {
+            const error = 'API key v2 tidak memiliki izin trading atau IP belum masuk whitelist';
+            await db.updateAccount({ ...account, last_error: error });
+            return { success: false, error };
         }
 
         // Update last_connected_at
@@ -244,5 +272,6 @@ module.exports = {
     deleteAccount,
     getDecryptedCredentials,
     testConnection,
-    maskCredential
+    maskCredential,
+    normalizeApiVersion
 };

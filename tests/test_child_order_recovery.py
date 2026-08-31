@@ -55,7 +55,7 @@ class FakeChildExchange:
         self.cancelled.append((str(order_id), side))
         return {'order_id': str(order_id)}
 
-    def cancel_order_by_client_id(self, client_order_id):
+    def cancel_order_by_client_id(self, client_order_id, _pair=''):
         self.cancelled.append((str(client_order_id), 'client_id'))
         return {'client_order_id': str(client_order_id)}
 

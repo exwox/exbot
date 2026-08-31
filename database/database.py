@@ -97,6 +97,7 @@ class DatabaseManager:
                 user_id TEXT NOT NULL DEFAULT '',
                 name TEXT NOT NULL,
                 exchange TEXT NOT NULL DEFAULT 'Indodax',
+                api_version TEXT NOT NULL DEFAULT 'v1',
                 api_key_encrypted TEXT NOT NULL DEFAULT '',
                 api_secret_encrypted TEXT NOT NULL DEFAULT '',
                 is_active INTEGER NOT NULL DEFAULT 1,
@@ -171,6 +172,7 @@ class DatabaseManager:
 
         for column, definition in (
             ('user_id', "TEXT NOT NULL DEFAULT ''"),
+            ('api_version', "TEXT NOT NULL DEFAULT 'v1'"),
         ):
             try:
                 cursor.execute(f'ALTER TABLE accounts ADD COLUMN {column} {definition}')
@@ -471,13 +473,16 @@ class DatabaseManager:
         cursor = self.connection.cursor()
         now = utc_now_iso()
         account_dict.setdefault('user_id', '')
+        account_dict.setdefault('api_version', 'v1')
         account_dict['created_at'] = now
         account_dict['updated_at'] = now
         cursor.execute("""
-            INSERT INTO accounts (id, user_id, name, exchange, api_key_encrypted, api_secret_encrypted,
-                                  is_active, created_at, updated_at, last_connected_at, last_error)
-            VALUES (:id, :user_id, :name, :exchange, :api_key_encrypted, :api_secret_encrypted,
-                    :is_active, :created_at, :updated_at, :last_connected_at, :last_error)
+            INSERT INTO accounts (id, user_id, name, exchange, api_version,
+                                  api_key_encrypted, api_secret_encrypted, is_active,
+                                  created_at, updated_at, last_connected_at, last_error)
+            VALUES (:id, :user_id, :name, :exchange, :api_version,
+                    :api_key_encrypted, :api_secret_encrypted, :is_active,
+                    :created_at, :updated_at, :last_connected_at, :last_error)
         """, account_dict)
         self.connection.commit()
         return account_dict['id']
@@ -485,10 +490,12 @@ class DatabaseManager:
     def update_account(self, account_dict: dict):
         cursor = self.connection.cursor()
         account_dict.setdefault('user_id', '')
+        account_dict.setdefault('api_version', 'v1')
         account_dict['updated_at'] = utc_now_iso()
         cursor.execute("""
             UPDATE accounts SET user_id=:user_id, name=:name, exchange=:exchange,
-                api_key_encrypted=:api_key_encrypted, api_secret_encrypted=:api_secret_encrypted,
+                api_version=:api_version, api_key_encrypted=:api_key_encrypted,
+                api_secret_encrypted=:api_secret_encrypted,
                 is_active=:is_active, updated_at=:updated_at,
                 last_connected_at=:last_connected_at, last_error=:last_error
             WHERE id=:id

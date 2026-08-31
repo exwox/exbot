@@ -8,6 +8,7 @@ Bot Manager - Mengelola semua akun dan bot worker
 - Monitoring health
 - Error isolation antar worker
 """
+import hashlib
 import logging
 import threading
 import time
@@ -81,6 +82,7 @@ class BotManager:
             for bot_data in self.db.get_account_bots(account.id):
                 bot_id = bot_data['id']
                 should_run = bot_data.get('status') == 'RUNNING' and is_user_valid
+                expected_fingerprint = self._worker_fingerprint(account, bot_data)
 
                 if not is_user_valid and bot_data.get('status') == 'RUNNING':
                     self._logger.warning(f"Stopping bot {bot_id}: User account {account.user_id} is inactive or subscription expired.")
@@ -91,6 +93,16 @@ class BotManager:
                     worker = self.workers.get(bot_id)
 
                 if should_run:
+                    if (worker is not None and
+                            getattr(worker, 'configuration_fingerprint', '') !=
+                            expected_fingerprint):
+                        self._logger.info(
+                            "Recreating worker %s after account/bot configuration change",
+                            bot_id)
+                        worker.stop()
+                        with self._lock:
+                            self.workers.pop(bot_id, None)
+                        worker = None
                     if worker is None:
                         self._logger.info(f"Starting requested bot worker: {bot_id}")
                         self._start_single_worker(account, bot_data)
@@ -104,9 +116,13 @@ class BotManager:
                         if worker.status != BotStatus.RUNNING:
                             self._logger.info(f"Resuming requested bot worker: {bot_id}")
                             worker.start()
-                elif worker and worker.status != BotStatus.STOPPED:
-                    self._logger.info(f"Stopping requested bot worker: {bot_id}")
-                    worker.stop()
+                elif worker:
+                    if worker.status != BotStatus.STOPPED:
+                        self._logger.info(f"Stopping requested bot worker: {bot_id}")
+                        worker.stop()
+                    # Do not retain decrypted credentials/version while idle.
+                    with self._lock:
+                        self.workers.pop(bot_id, None)
 
         # Stop workers whose account was disabled or deleted.
         with self._lock:
@@ -114,6 +130,8 @@ class BotManager:
                                 if worker.account_id not in active_account_ids]
         for worker in orphaned_workers:
             worker.stop()
+            with self._lock:
+                self.workers.pop(worker.bot_id, None)
 
     def _load_account_workers(self, account):
         """Load all bot workers for an account"""
@@ -151,7 +169,9 @@ class BotManager:
         self._resolve_credential_alert(account.id)
 
         # Create exchange client for this account
-        client = IndodaxClient(creds['api_key'], creds['api_secret'])
+        client = IndodaxClient(
+            creds['api_key'], creds['api_secret'],
+            creds.get('api_version', 'v1'))
 
         # Create worker
         worker = BotWorker(
@@ -163,6 +183,8 @@ class BotManager:
             db=self.db,
             dry_run=dry_run,
         )
+        worker.configuration_fingerprint = self._worker_fingerprint(
+            account, bot_data)
 
         with self._lock:
             self.workers[bot_id] = worker
@@ -263,7 +285,9 @@ class BotManager:
             return None
         self._resolve_credential_alert(account.id)
 
-        client = IndodaxClient(creds['api_key'], creds['api_secret'])
+        client = IndodaxClient(
+            creds['api_key'], creds['api_secret'],
+            creds.get('api_version', 'v1'))
         worker = BotWorker(
             account_id=account_id,
             bot_id=bot_id,
@@ -273,11 +297,30 @@ class BotManager:
             db=self.db,
             dry_run=dry_run,
         )
+        worker.configuration_fingerprint = self._worker_fingerprint(
+            account, {
+                'id': bot_id,
+                'pair': pair,
+                'dry_run': dry_run,
+                'strategy_id': strategy_id,
+            })
 
         with self._lock:
             self.workers[bot_id] = worker
 
         return worker
+
+    @staticmethod
+    def _worker_fingerprint(account, bot_data: dict) -> str:
+        """Detect account/bot changes that require a fresh worker."""
+        parts = (
+            str(getattr(account, 'api_version', 'v1') or 'v1'),
+            str(getattr(account, 'api_key_encrypted', '') or ''),
+            str(getattr(account, 'api_secret_encrypted', '') or ''),
+            str(bot_data.get('pair', 'btcidr') or 'btcidr'),
+            str(bool(bot_data.get('dry_run', True))),
+        )
+        return hashlib.sha256('\x00'.join(parts).encode('utf-8')).hexdigest()
 
     def _raise_credential_alert(self, account_id: str, bot_id: str,
                                 consequence: str):

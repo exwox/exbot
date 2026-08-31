@@ -938,7 +938,9 @@ class BotWorker:
                              payload.get('spend_rp', 0) or 0)
         crypto_amount = immediate_receive
         if crypto_amount <= 0 and filled_gross > 0:
-            crypto_amount = filled_gross * (1 - fee_pct / 100)
+            crypto_amount = self._net_base_fill(
+                payload, filled_gross, fee_pct / 100,
+                float(payload.get('price') or intent.get('price') or 0))
         if filled_quote <= 0 and crypto_amount > 0:
             filled_quote = float(intent.get('amount_quote', 0) or 0)
 
@@ -989,14 +991,17 @@ class BotWorker:
         if price <= 0 and crypto_amount > 0:
             price = filled_quote / crypto_amount
         trade_type = intent.get('order_type', 'base_market')
+        fee_known, actual_fee = self._fee_in_quote(payload, price)
         self._activate_base_position(
             position, exchange_order_id, crypto_amount, filled_quote,
-            price, fee_pct, trade_type, intent)
+            price, fee_pct, trade_type, intent,
+            actual_fee if fee_known else None)
 
     def _activate_base_position(self, position: dict, base_order_id: str,
                                 crypto_amount: float, invested: float,
                                 price: float, fee_pct: float, trade_type: str,
-                                intent: Optional[dict] = None):
+                                intent: Optional[dict] = None,
+                                actual_fee: Optional[float] = None):
         """Atomically promote a confirmed BO, then create its child orders."""
         position['status'] = 'OPEN'
         position['base_price'] = price
@@ -1014,7 +1019,8 @@ class BotWorker:
         self._force_base_order_on_start = False
         self._record_trade(
             position, 'buy', trade_type, price, crypto_amount, invested,
-            base_order_id, invested * fee_pct / 100,
+            base_order_id, (invested * fee_pct / 100
+                            if actual_fee is None else actual_fee),
             trade_id=f"trade_base_{position.get('id', '')}")
         if intent:
             self.db.update_order_submission(intent['id'], base_order_id, 'FILLED')
@@ -1691,8 +1697,12 @@ class BotWorker:
             if cumulative_gross > 0:
                 gross_delta = max(
                     cumulative_gross - already_net - already_fee, 0)
-                fee = gross_delta * self.strategy.market_sell_fee_percent / 100
-                net_delta = gross_delta - fee
+                fee_known, cumulative_actual_fee = self._fee_in_quote(
+                    payload, price)
+                fee = (max(cumulative_actual_fee - already_fee, 0)
+                       if fee_known else
+                       gross_delta * self.strategy.market_sell_fee_percent / 100)
+                net_delta = max(gross_delta - fee, 0)
             elif cumulative_net > 0:
                 net_delta = max(cumulative_net - already_net, 0)
                 fee = net_delta * self.strategy.market_sell_fee_percent / max(
@@ -1867,6 +1877,49 @@ class BotWorker:
             self._place_missing_so_orders(
                 position.get('open_orders', []), finalized_numbers)
 
+    def _pair_assets(self) -> tuple[str, str]:
+        compact = str(self.pair or 'btcidr').lower().replace(
+            '_', '').replace('/', '').replace('-', '').replace(' ', '')
+        for quote in ('usdt', 'idr'):
+            if compact.endswith(quote) and len(compact) > len(quote):
+                return compact[:-len(quote)], quote
+        return compact, 'idr'
+
+    def _fee_in_quote(self, payload: dict, price: float) -> tuple[bool, float]:
+        """Return cumulative exchange fee converted to the pair quote asset."""
+        if not payload.get('fee_known'):
+            return False, 0.0
+        base_asset, quote_asset = self._pair_assets()
+        breakdown = payload.get('fee_breakdown')
+        if not isinstance(breakdown, dict):
+            asset = str(payload.get('fee_asset') or '').lower()
+            breakdown = {asset: float(payload.get('fee_amount', 0) or 0)} \
+                if asset else {}
+        quote_fee = 0.0
+        for asset, amount in breakdown.items():
+            numeric = float(amount or 0)
+            normalized_asset = str(asset or '').lower()
+            if normalized_asset == quote_asset:
+                quote_fee += numeric
+            elif normalized_asset == base_asset:
+                quote_fee += numeric * max(float(price or 0), 0)
+            # A fee paid in a third asset does not reduce base/quote proceeds.
+        return True, quote_fee
+
+    def _net_base_fill(self, payload: dict, gross_amount: float,
+                       fallback_fee_rate: float, price: float) -> float:
+        """Subtract a buy fee only when Indodax charged it in the base asset."""
+        if not payload.get('fee_known'):
+            return gross_amount * (1 - fallback_fee_rate)
+        base_asset, _ = self._pair_assets()
+        breakdown = payload.get('fee_breakdown')
+        if not isinstance(breakdown, dict):
+            asset = str(payload.get('fee_asset') or '').lower()
+            breakdown = {asset: float(payload.get('fee_amount', 0) or 0)} \
+                if asset else {}
+        base_fee = float(breakdown.get(base_asset, 0) or 0)
+        return max(gross_amount - base_fee, 0.0)
+
     @staticmethod
     def _fill_trade_id(position_id: str, order_id: str, side: str,
                        cumulative_amount: float, cumulative_quote: float) -> str:
@@ -1891,7 +1944,9 @@ class BotWorker:
         quote_filled = float(status.get('filled_quote', 0) or 0)
         if quote_filled <= 0:
             quote_filled = gross_filled * price
-        net_filled = gross_filled * (1 - fee_rate)
+        net_filled = self._net_base_fill(
+            status, gross_filled, fee_rate, price)
+        fee_known, cumulative_actual_fee = self._fee_in_quote(status, price)
 
         so_entries = position.get('so_entries', [])
         entry = next((item for item in so_entries
@@ -1906,16 +1961,27 @@ class BotWorker:
 
         previous_net = float(entry.get('amount_crypto', 0) or 0)
         previous_quote = float(entry.get('amount_idr', 0) or 0)
+        previous_gross = float(entry.get('filled_gross_amount', 0) or 0)
+        if previous_gross <= 0 and previous_net > 0 and not status.get('fee_known'):
+            previous_gross = (previous_net / (1 - fee_rate)
+                              if fee_rate < 1 else previous_net)
         delta_net = max(net_filled - previous_net, 0)
         delta_quote = max(quote_filled - previous_quote, 0)
         changed = delta_net > 1e-12 or delta_quote > 0.0001
         if changed:
-            delta_gross = delta_net / (1 - fee_rate) if fee_rate < 1 else delta_net
+            delta_gross = max(gross_filled - previous_gross, 0)
+            if delta_gross <= 0:
+                delta_gross = (delta_net / (1 - fee_rate)
+                               if fee_rate < 1 else delta_net)
             delta_price = delta_quote / delta_gross if delta_gross > 0 else price
             trade_type = f"so_{so_number}" if is_final else f"partial_so_{so_number}"
+            previous_fee = float(self.db.get_order_trade_totals(
+                position.get('id', ''), oid, 'buy').get('fee', 0) or 0)
+            fee = (max(cumulative_actual_fee - previous_fee, 0)
+                   if fee_known else delta_quote * fee_rate)
             self._record_trade(
                 position, 'buy', trade_type, delta_price, delta_net,
-                delta_quote, oid, delta_quote * fee_rate,
+                delta_quote, oid, fee,
                 executed_at=utc_now_iso(),
                 trade_id=self._fill_trade_id(
                     position.get('id', ''), oid, 'buy', gross_filled, quote_filled),
@@ -1926,6 +1992,7 @@ class BotWorker:
                 'price': price or entry.get('price', 0),
                 'amount_idr': quote_filled,
                 'amount_crypto': net_filled,
+                'filled_gross_amount': gross_filled,
                 'timestamp': utc_now_iso(),
             })
 
@@ -1966,7 +2033,11 @@ class BotWorker:
             gross_value = max(cumulative_quote - already_gross_quote, 0)
             if gross_value <= 0:
                 gross_value = delta * price
-            fee = gross_value * self.strategy.limit_sell_fee_percent / 100
+            fee_known, cumulative_actual_fee = self._fee_in_quote(status, price)
+            fee = (max(cumulative_actual_fee -
+                       float(totals.get('fee', 0) or 0), 0)
+                   if fee_known else
+                   gross_value * self.strategy.limit_sell_fee_percent / 100)
             net_value = gross_value - fee
             total_amount = float(position.get('total_amount', 0) or 0)
             cost_basis = (float(position.get('total_invested', 0) or 0) *
@@ -2137,7 +2208,8 @@ class BotWorker:
                                 self.pair, base_oid, 'buy')
                         else:
                             result = self.client.cancel_order_by_client_id(
-                                base_intent.get('client_order_id', ''))
+                                base_intent.get('client_order_id', ''),
+                                self.pair)
                         if not isinstance(result, dict) or not result.get('error'):
                             self.db.update_order_status(
                                 base_intent['id'], 'CANCELLED')
@@ -2215,7 +2287,7 @@ class BotWorker:
                             self.pair, oid, intent.get('side', ''))
                     else:
                         result = self.client.cancel_order_by_client_id(
-                            intent.get('client_order_id', ''))
+                            intent.get('client_order_id', ''), self.pair)
                     if not isinstance(result, dict) or not result.get('error'):
                         self.db.update_order_status(intent['id'], 'CANCELLED')
                         if oid:

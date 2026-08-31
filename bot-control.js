@@ -88,7 +88,8 @@ async function cancelTrackedBotOrders(bot, position, client, ledgerOrders = null
         try {
             const result = order.exchange_order_id
                 ? await client.cancel_order(bot.pair, order.exchange_order_id, order.side)
-                : await client.cancel_order_by_client_id(order.client_order_id);
+                : await client.cancel_order_by_client_id(
+                    order.client_order_id, bot.pair);
             if (result?.error) {
                 failures.push(key);
             } else if (order.ledger_id) {
@@ -131,7 +132,8 @@ async function cancellationClientForOwnedBot(userId, bot, hasTrackedOrders) {
         error.statusCode = 409;
         throw error;
     }
-    return new IndodaxClient(apiKey, apiSecret);
+    return new IndodaxClient(
+        apiKey, apiSecret, account.api_version || 'v1');
 }
 
 async function recordCancellationFailure(bot, error) {

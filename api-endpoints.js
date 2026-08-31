@@ -177,6 +177,7 @@ function publicAccount(account) {
         id: account.id,
         name: account.name,
         exchange: account.exchange,
+        api_version: accounts.normalizeApiVersion(account.api_version || 'v1'),
         is_active: !!account.is_active,
         last_connected_at: account.last_connected_at || null,
         last_error: account.last_error || null,
@@ -211,25 +212,28 @@ router.get('/accounts', async (req, res) => {
 router.post('/accounts', async (req, res) => {
     try {
         await ensureInit();
-        const { name, api_key, api_secret, exchange } = req.body;
+        const { name, api_key, api_secret, exchange, api_version } = req.body;
 
         if (!name || !api_key || !api_secret) {
             return res.json({ success: false, error: 'Name, API key, and secret are required' });
         }
 
-        const account = await accounts.createAccount(req.user.id, sanitizeName(name), api_key, api_secret, exchange);
+        const account = await accounts.createAccount(
+            req.user.id, sanitizeName(name), api_key, api_secret, exchange,
+            api_version || 'v1');
         res.json({
             success: true,
             data: {
                 id: account.id,
                 name: account.name,
                 exchange: account.exchange,
+                api_version: account.api_version || 'v1',
                 is_active: account.is_active
             },
             message: 'Account created successfully'
         });
     } catch (e) {
-        res.json({ success: false, error: e.message });
+        res.status(e.statusCode || 500).json({ success: false, error: e.message });
     }
 });
 
@@ -243,6 +247,49 @@ router.put('/accounts/:id', async (req, res) => {
 
         const existing = await ownedAccount(req.user.id, id);
         if (!existing) return res.status(404).json({ success: false, error: 'Account not found' });
+        const apiKeyProvided = typeof updates.api_key === 'string' &&
+            updates.api_key.trim().length > 0;
+        const apiSecretProvided = typeof updates.api_secret === 'string' &&
+            updates.api_secret.trim().length > 0;
+        const changesCredentials = updates.api_key !== undefined ||
+            updates.api_secret !== undefined;
+        const changesVersion = updates.api_version !== undefined &&
+            accounts.normalizeApiVersion(updates.api_version) !==
+                accounts.normalizeApiVersion(existing.api_version || 'v1');
+        if (changesCredentials && (!apiKeyProvided || !apiSecretProvided)) {
+            return res.status(400).json({
+                success: false,
+                error: 'API key dan API secret harus diperbarui bersamaan'
+            });
+        }
+        if (changesVersion && (!apiKeyProvided || !apiSecretProvided)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Perubahan versi API memerlukan API key dan secret baru untuk versi tujuan'
+            });
+        }
+        if (changesCredentials || changesVersion) {
+            const linkedBots = await db.getAccountBots(id);
+            if (linkedBots.some(bot => bot.status !== 'STOPPED')) {
+                return res.status(409).json({
+                    success: false,
+                    error: 'Hentikan semua bot pada akun ini sebelum mengubah credential atau versi API'
+                });
+            }
+            const liveBots = linkedBots.filter(bot => !bot.dry_run);
+            const recoverable = await Promise.all(liveBots.map(async bot => {
+                const [position, openOrders] = await Promise.all([
+                    db.getPosition(bot.id), db.getOpenOrders(bot.id)
+                ]);
+                return Boolean(position || openOrders.length);
+            }));
+            if (recoverable.some(Boolean)) {
+                return res.status(409).json({
+                    success: false,
+                    error: 'Masih ada posisi atau order live yang perlu dipulihkan/dibatalkan sebelum credential atau versi API diubah'
+                });
+            }
+        }
         const account = await accounts.updateAccount(id, updates);
         res.json({
             success: true,
@@ -250,12 +297,13 @@ router.put('/accounts/:id', async (req, res) => {
                 id: account.id,
                 name: account.name,
                 exchange: account.exchange,
+                api_version: account.api_version || 'v1',
                 is_active: account.is_active
             },
             message: 'Account updated successfully'
         });
     } catch (e) {
-        res.json({ success: false, error: e.message });
+        res.status(e.statusCode || 500).json({ success: false, error: e.message });
     }
 });
 
@@ -303,7 +351,7 @@ router.get('/accounts/:id/balance', async (req, res) => {
         }
 
         const result = await new IndodaxClient(
-            creds.api_key, creds.api_secret).get_balance();
+            creds.api_key, creds.api_secret, creds.api_version).get_balance();
         if (!result || result.error) {
             return res.status(502).json({
                 success: false,
@@ -654,11 +702,12 @@ router.post('/settings', async (req, res) => {
         }
 
         // Update account if provided
-        if (account_id && settings.api_key) {
+        if (account_id && (settings.api_key || settings.api_version)) {
             if (!await ownedAccount(req.user.id, account_id)) return res.status(404).json({ success: false, error: 'Account not found' });
             await accounts.updateAccount(account_id, {
                 api_key: settings.api_key,
-                api_secret: settings.api_secret
+                api_secret: settings.api_secret,
+                api_version: settings.api_version
             });
         }
 
@@ -920,7 +969,8 @@ router.get('/candlestick', async (req, res) => {
             return res.json({ success: false, error: 'Failed to decrypt credentials' });
         }
 
-        const client = new IndodaxClient(creds.api_key, creds.api_secret);
+        const client = new IndodaxClient(
+            creds.api_key, creds.api_secret, creds.api_version);
         const pair = bot.pair || 'btcidr';
 
         const candles = await client.get_ohlc(pair, timeframe, limit);
@@ -1021,7 +1071,8 @@ router.get('/open-orders', async (req, res) => {
             return res.json({ success: false, error: 'Failed to decrypt credentials' });
         }
 
-        const client = new IndodaxClient(creds.api_key, creds.api_secret);
+        const client = new IndodaxClient(
+            creds.api_key, creds.api_secret, creds.api_version);
         let pair = bot.pair || 'btcidr';
 
         // Normalize pair format
@@ -1126,13 +1177,11 @@ router.get('/exchange-trades', async (req, res) => {
             return res.json({ success: false, error: 'Failed to decrypt credentials' });
         }
 
-        const client = new IndodaxClient(creds.api_key, creds.api_secret);
+        const client = new IndodaxClient(
+            creds.api_key, creds.api_secret, creds.api_version);
         const pair = bot.pair || 'btcidr';
 
-        // Trade API v1 (/tapi) is deprecated by Indodax and now returns 404.
-        // Use the current v2 feed so history is fetched directly from the
-        // exchange and is independent of local bot persistence.
-        const trades = await client.get_trade_history_v2(pair, 50);
+        const trades = await client.get_trade_history(pair, 50);
         if (trades && trades.error) {
             return res.json({ success: false, error: trades.error });
         }
@@ -1142,22 +1191,31 @@ router.get('/exchange-trades', async (req, res) => {
             for (const trade of trades) {
                 try {
                     const price = parseFloat(trade.price || 0);
-                    const cryptoAmount = parseFloat(trade.qty || 0);
-                    const quoteAmount = parseFloat(trade.quoteQty || (price * cryptoAmount));
-                    const tradeTime = parseInt(trade.time || 0);
+                    const cryptoAmount = parseFloat(
+                        trade.qty ?? trade.amount ?? 0);
+                    const quoteAmount = parseFloat(
+                        trade.quoteQty ?? trade.amount_idr ??
+                        trade.filled_quote ?? (price * cryptoAmount));
+                    const tradeTime = parseInt(
+                        trade.time ?? trade.timestamp ?? 0);
                     const formattedTime = tradeTime ? new Date(tradeTime).toLocaleString('id-ID') : '';
 
                     formatted.push({
-                        order_id: trade.orderId || trade.tradeId || '',
-                        type: trade.isBuyer ? 'buy' : 'sell',
+                        order_id: trade.orderId || trade.order_id ||
+                            trade.tradeId || trade.trade_id || '',
+                        type: trade.isBuyer === undefined
+                            ? String(trade.type || trade.side || '').toLowerCase()
+                            : (trade.isBuyer ? 'buy' : 'sell'),
                         price: price,
                         amount: quoteAmount,
                         amount_crypto: cryptoAmount,
                         time: formattedTime,
                         submit_time: formattedTime,
                         status: 'filled',
-                        fee: parseFloat(trade.commission || 0),
-                        fee_currency: trade.commissionAsset || 'IDR',
+                        fee: parseFloat(
+                            trade.commission ?? trade.fee_amount ?? 0),
+                        fee_currency: trade.commissionAsset ||
+                            trade.fee_asset || 'IDR',
                         maker: !!trade.isMaker
                     });
                 } catch (e) {
@@ -1218,7 +1276,8 @@ router.post('/backtest', async (req, res) => {
         const creds = await accounts.getDecryptedCredentials(bot.account_id);
         if (!creds) return res.status(400).json({ success: false, error: 'Credential akun tidak tersedia' });
 
-        const client = new IndodaxClient(creds.api_key, creds.api_secret);
+        const client = new IndodaxClient(
+            creds.api_key, creds.api_secret, creds.api_version);
         const candles = await client.get_ohlc(bot.pair || 'btcidr', timeframe, limit);
         if (!Array.isArray(candles)) {
             return res.status(502).json({
@@ -1304,7 +1363,8 @@ async function cancelTrackedBotOrders(bot, position, client, ledgerOrders = null
         try {
             const result = order.exchange_order_id
                 ? await client.cancel_order(bot.pair, order.exchange_order_id, order.side)
-                : await client.cancel_order_by_client_id(order.client_order_id);
+                : await client.cancel_order_by_client_id(
+                    order.client_order_id, bot.pair);
             if (result?.error) {
                 failures.push(key);
             } else if (order.ledger_id) {
@@ -1347,7 +1407,8 @@ async function cancellationClientForOwnedBot(userId, bot, hasTrackedOrders) {
         error.statusCode = 409;
         throw error;
     }
-    return new IndodaxClient(apiKey, apiSecret);
+    return new IndodaxClient(
+        apiKey, apiSecret, account.api_version || 'v1');
 }
 
 async function recordCancellationFailure(bot, error) {

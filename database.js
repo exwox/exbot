@@ -46,6 +46,7 @@ class Database {
                     user_id TEXT NOT NULL,
                     name TEXT NOT NULL,
                     exchange TEXT NOT NULL DEFAULT 'Indodax',
+                    api_version TEXT NOT NULL DEFAULT 'v1',
                     api_key_encrypted TEXT NOT NULL DEFAULT '',
                     api_secret_encrypted TEXT NOT NULL DEFAULT '',
                     is_active INTEGER NOT NULL DEFAULT 1,
@@ -407,6 +408,7 @@ class Database {
         addColumn('users', 'expired_at', 'TEXT DEFAULT NULL');
         addColumn('users', 'updated_at', "TEXT NOT NULL DEFAULT ''");
         addColumn('accounts', 'user_id', 'TEXT');
+        addColumn('accounts', 'api_version', "TEXT NOT NULL DEFAULT 'v1'");
         addColumn('strategies', 'user_id', 'TEXT');
         addColumn('strategies', 'limit_buy_fee_percent', 'REAL NOT NULL DEFAULT 0.15');
         addColumn('strategies', 'limit_sell_fee_percent', 'REAL NOT NULL DEFAULT 0.15');
@@ -529,11 +531,13 @@ class Database {
             account.created_at = now;
             account.updated_at = now;
             this.db.run(
-                `INSERT INTO accounts (id, user_id, name, exchange, api_key_encrypted, api_secret_encrypted,
-                    is_active, created_at, updated_at, last_connected_at, last_error)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                `INSERT INTO accounts (id, user_id, name, exchange, api_version,
+                    api_key_encrypted, api_secret_encrypted, is_active, created_at,
+                    updated_at, last_connected_at, last_error)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     account.id, account.user_id, account.name, account.exchange,
+                    account.api_version || 'v1',
                     account.api_key_encrypted || '', account.api_secret_encrypted || '',
                     account.is_active ? 1 : 0, account.created_at, account.updated_at,
                     account.last_connected_at, account.last_error
@@ -550,10 +554,12 @@ class Database {
         return new Promise((resolve, reject) => {
             account.updated_at = new Date().toISOString();
             this.db.run(
-                `UPDATE accounts SET name=?, exchange=?, api_key_encrypted=?, api_secret_encrypted=?,
-                    is_active=?, updated_at=?, last_connected_at=?, last_error=? WHERE id=?`,
+                `UPDATE accounts SET name=?, exchange=?, api_version=?,
+                    api_key_encrypted=?, api_secret_encrypted=?, is_active=?,
+                    updated_at=?, last_connected_at=?, last_error=? WHERE id=?`,
                 [
                     account.name, account.exchange,
+                    account.api_version || 'v1',
                     account.api_key_encrypted || '', account.api_secret_encrypted || '',
                     account.is_active ? 1 : 0, account.updated_at,
                     account.last_connected_at, account.last_error, account.id

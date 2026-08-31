@@ -303,7 +303,8 @@ class TelegramService {
             try {
                 const apiKey = this.db.decrypt(account.api_key_encrypted, account.id);
                 const apiSecret = this.db.decrypt(account.api_secret_encrypted, account.id);
-                const result = await new IndodaxClient(apiKey, apiSecret).get_balance();
+                const result = await new IndodaxClient(
+                    apiKey, apiSecret, account.api_version || 'v1').get_balance();
                 if (!result || result.error) throw new Error(result?.error || 'saldo tidak tersedia');
                 available += Math.max(Number(result.balance?.idr) || 0, 0);
                 held += Math.max(Number(result.balance_hold?.idr) || 0, 0);

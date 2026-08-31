@@ -12,6 +12,7 @@ class Account:
     user_id: str = ""
     name: str = ""
     exchange: str = "Indodax"
+    api_version: str = "v1"
     api_key_encrypted: str = ""
     api_secret_encrypted: str = ""
     is_active: bool = True
@@ -35,6 +36,7 @@ class Account:
             'user_id': self.user_id,
             'name': self.name,
             'exchange': self.exchange,
+            'api_version': self.api_version,
             'api_key_encrypted': self.api_key_encrypted,
             'api_secret_encrypted': self.api_secret_encrypted,
             'is_active': self.is_active,
@@ -51,6 +53,7 @@ class Account:
             user_id=str(data.get('user_id', '') or ''),
             name=data.get('name', ''),
             exchange=data.get('exchange', 'Indodax'),
+            api_version=data.get('api_version', 'v1') or 'v1',
             api_key_encrypted=data.get('api_key_encrypted', ''),
             api_secret_encrypted=data.get('api_secret_encrypted', ''),
             is_active=data.get('is_active', True),

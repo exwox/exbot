@@ -190,6 +190,11 @@
                     <!-- Accounts Section -->
                     <div class="mb-4">
                         <h5 class="text-accent mb-3">📊 Accounts</h5>
+                        <div class="alert alert-info py-2 small" role="note">
+                            <strong>Trade API v2 memakai API key khusus.</strong>
+                            Key v1 tidak dapat digunakan sebagai key v2. Untuk mengaktifkan transaksi Spot
+                            pada v2, daftarkan IP server di whitelist Indodax dan jangan aktifkan izin withdrawal.
+                        </div>
                         <div id="accountsList">
                             <div class="text-center py-4">
                                 <div class="spinner-border text-primary" role="status"></div>
@@ -213,12 +218,20 @@
                             <div class="mb-3">
                                 <label class="form-label text-secondary small">API Key</label>
                                 <input type="text" name="api_key" class="form-control" placeholder="Enter API key"
-                                    required>
+                                    autocomplete="off" required>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label text-secondary small">API Secret</label>
-                                <input type="text" name="api_secret" class="form-control" placeholder="Enter API secret"
-                                    required>
+                                <input type="password" name="api_secret" class="form-control"
+                                    placeholder="Enter API secret" autocomplete="new-password" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-secondary small">Versi Trade API</label>
+                                <select name="api_version" class="form-select" required>
+                                    <option value="v2" selected>Trade API v2 (direkomendasikan)</option>
+                                    <option value="v1">Trade API v1 (legacy)</option>
+                                </select>
+                                <small class="text-muted">Pilih versi yang sama dengan API key yang dibuat di Indodax.</small>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label text-secondary small">Exchange</label>
@@ -229,6 +242,45 @@
                             <button type="submit" class="btn btn-success btn-sm">Save Account</button>
                             <button type="button" class="btn btn-secondary btn-sm"
                                 onclick="hideAddAccountForm()">Cancel</button>
+                        </form>
+                    </div>
+
+                    <!-- Edit Account Form. Stored credentials are never placed back into the DOM. -->
+                    <div id="editAccountForm" class="account-item" style="display: none;">
+                        <h6 class="text-accent mb-3">Edit Account</h6>
+                        <form onsubmit="updateAccount(event)">
+                            <input type="hidden" name="account_id">
+                            <input type="hidden" name="original_api_version">
+                            <div class="mb-3">
+                                <label class="form-label text-secondary small">Account Name</label>
+                                <input type="text" name="name" class="form-control" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-secondary small">Versi Trade API</label>
+                                <select name="api_version" class="form-select" required>
+                                    <option value="v2">Trade API v2 (direkomendasikan)</option>
+                                    <option value="v1">Trade API v1 (legacy)</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-secondary small">API Key Baru (opsional)</label>
+                                <input type="text" name="api_key" class="form-control"
+                                    placeholder="Kosongkan untuk mempertahankan key saat ini" autocomplete="off">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-secondary small">API Secret Baru (opsional)</label>
+                                <input type="password" name="api_secret" class="form-control"
+                                    placeholder="Kosongkan untuk mempertahankan secret saat ini"
+                                    autocomplete="new-password">
+                                <small class="text-muted">
+                                    Credential tersimpan tidak pernah ditampilkan. Isi API Key dan API Secret
+                                    bersamaan hanya ketika ingin menggantinya. Mengganti versi API wajib memakai
+                                    credential baru untuk versi tujuan.
+                                </small>
+                            </div>
+                            <button type="submit" class="btn btn-success btn-sm">Simpan Perubahan</button>
+                            <button type="button" class="btn btn-secondary btn-sm"
+                                onclick="hideEditAccountForm()">Batal</button>
                         </form>
                     </div>
 
@@ -508,6 +560,7 @@
         let selectedDcaBot = null;
         let selectedDcaStrategy = null;
         let dcaData = { accounts: [], bots: [], strategies: [] };
+        let accountsData = [];
         let currentDcaCapitalPlan = null;
         let currentDcaBalance = null;
         let dcaBalanceRequest = 0;
@@ -1010,11 +1063,45 @@
         }
 
         function showAddAccountForm() {
+            hideEditAccountForm();
             document.getElementById('addAccountForm').style.display = 'block';
         }
 
         function hideAddAccountForm() {
             document.getElementById('addAccountForm').style.display = 'none';
+        }
+
+        function showEditAccountForm(id) {
+            const account = accountsData.find(item => String(item.id) === String(id));
+            if (!account) {
+                showSettingsAlert('Account tidak ditemukan. Muat ulang halaman lalu coba lagi.', 'danger');
+                return;
+            }
+
+            hideAddAccountForm();
+            const container = document.getElementById('editAccountForm');
+            const form = container.querySelector('form');
+            form.reset();
+            form.elements.account_id.value = account.id;
+            form.elements.name.value = account.name || '';
+            form.elements.api_version.value = account.api_version === 'v2' ? 'v2' : 'v1';
+            form.elements.original_api_version.value = form.elements.api_version.value;
+            // Credential fields deliberately stay empty. The API never returns
+            // plaintext credentials and the editor must not render masked
+            // values as if they were reusable keys.
+            form.elements.api_key.value = '';
+            form.elements.api_secret.value = '';
+            container.style.display = 'block';
+            container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        function hideEditAccountForm() {
+            const container = document.getElementById('editAccountForm');
+            const form = container.querySelector('form');
+            form.reset();
+            form.elements.account_id.value = '';
+            form.elements.original_api_version.value = '';
+            container.style.display = 'none';
         }
 
         async function loadAccounts() {
@@ -1024,36 +1111,59 @@
 
                 if (result.success) {
                     const accountsList = document.getElementById('accountsList');
+                    accountsData = Array.isArray(result.data) ? result.data : [];
 
-                    if (result.data.length === 0) {
+                    if (accountsData.length === 0) {
+                        hideEditAccountForm();
                         accountsList.innerHTML = '<p class="text-center text-muted">No accounts configured. Add your first account above.</p>';
                         return;
                     }
 
-                    accountsList.innerHTML = result.data.map(account => `
+                    accountsList.innerHTML = accountsData.map(account => {
+                        const apiVersion = account.api_version === 'v2' ? 'v2' : 'v1';
+                        const lastConnected = account.last_connected_at
+                            ? new Date(account.last_connected_at).toLocaleString('id-ID')
+                            : 'Never';
+                        return `
                         <div class="account-item">
                             <div class="d-flex justify-content-between align-items-start">
                                 <div>
                                     <h6 class="mb-1">${escapeHtml(account.name)}</h6>
                                     <p class="text-muted small mb-1">
-                                        Exchange: ${account.exchange}<br>
-                                        API Key: ${account.api_key_masked || 'N/A'}<br>
-                                        Last Connected: ${account.last_connected_at ? new Date(account.last_connected_at).toLocaleString('id-ID') : 'Never'}
+                                        Exchange: ${escapeHtml(account.exchange)}<br>
+                                        Versi API: ${escapeHtml(apiVersion.toUpperCase())}<br>
+                                        API Key: ${escapeHtml(account.api_key_masked || 'N/A')}<br>
+                                        Last Connected: ${escapeHtml(lastConnected)}
                                     </p>
                                     ${account.last_error ? `<p class="text-danger small mb-1">Error: ${escapeHtml(account.last_error)}</p>` : ''}
                                 </div>
                                 <div class="text-end">
+                                    <span class="badge bg-info mb-1">API ${escapeHtml(apiVersion.toUpperCase())}</span><br>
                                     <span class="badge ${account.is_active ? 'badge-active' : 'badge-inactive'}">
                                         ${account.is_active ? 'Active' : 'Inactive'}
                                     </span>
-                                    <div class="mt-2">
-                                        <button class="btn btn-sm btn-primary" onclick="testConnection('${account.id}')">Test</button>
-                                        <button class="btn btn-sm btn-danger" onclick="deleteAccount('${account.id}')">Delete</button>
+                                    <div class="d-flex flex-wrap gap-1 justify-content-end mt-2">
+                                        <button class="btn btn-sm btn-outline-primary" type="button"
+                                            data-account-action="test" data-account-id="${escapeHtml(account.id)}">Test</button>
+                                        <button class="btn btn-sm btn-primary" type="button"
+                                            data-account-action="edit" data-account-id="${escapeHtml(account.id)}">Edit</button>
+                                        <button class="btn btn-sm btn-danger" type="button"
+                                            data-account-action="delete" data-account-id="${escapeHtml(account.id)}">Delete</button>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    `).join('');
+                    `;
+                    }).join('');
+
+                    accountsList.querySelectorAll('[data-account-action]').forEach(button => {
+                        button.addEventListener('click', () => {
+                            const id = button.dataset.accountId;
+                            if (button.dataset.accountAction === 'edit') showEditAccountForm(id);
+                            else if (button.dataset.accountAction === 'test') testConnection(id);
+                            else if (button.dataset.accountAction === 'delete') deleteAccount(id);
+                        });
+                    });
                 }
             } catch (e) {
                 console.error('Failed to load accounts:', e);
@@ -1074,6 +1184,7 @@
                         name: formData.get('name'),
                         api_key: formData.get('api_key'),
                         api_secret: formData.get('api_secret'),
+                        api_version: formData.get('api_version'),
                         exchange: formData.get('exchange')
                     })
                 });
@@ -1093,16 +1204,81 @@
             }
         }
 
+        async function updateAccount(event) {
+            event.preventDefault();
+            const form = event.target;
+            const accountId = String(form.elements.account_id.value || '');
+            const apiVersion = String(form.elements.api_version.value || 'v1');
+            const originalApiVersion = String(
+                form.elements.original_api_version.value || 'v1');
+            const apiKey = String(form.elements.api_key.value || '').trim();
+            const apiSecret = String(form.elements.api_secret.value || '').trim();
+
+            if (!accountId) {
+                showSettingsAlert('Account yang akan diedit tidak valid.', 'danger');
+                return;
+            }
+            if ((apiKey && !apiSecret) || (!apiKey && apiSecret)) {
+                showSettingsAlert(
+                    'API Key dan API Secret baru harus diisi bersamaan.', 'warning');
+                return;
+            }
+            if (apiVersion !== originalApiVersion && !(apiKey && apiSecret)) {
+                showSettingsAlert(
+                    'Mengganti versi API wajib disertai API Key dan API Secret khusus versi tujuan.',
+                    'warning');
+                return;
+            }
+
+            const payload = {
+                name: String(form.elements.name.value || '').trim(),
+                api_version: apiVersion
+            };
+            // An empty pair means "keep the encrypted credentials". Never send
+            // empty strings because that could overwrite a working account.
+            if (apiKey && apiSecret) {
+                payload.api_key = apiKey;
+                payload.api_secret = apiSecret;
+            }
+
+            const submitButton = form.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+            try {
+                const response = await fetch(
+                    `/api/accounts/${encodeURIComponent(accountId)}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || `HTTP ${response.status}`);
+                }
+
+                hideEditAccountForm();
+                await Promise.all([loadAccounts(), loadBots(), loadDcaSettings()]);
+                showSettingsAlert(
+                    'Account berhasil diperbarui. Jalankan Test sebelum menyalakan bot.',
+                    'success');
+            } catch (error) {
+                showSettingsAlert(`Gagal memperbarui account: ${error.message}`, 'danger');
+            } finally {
+                submitButton.disabled = false;
+            }
+        }
+
         async function deleteAccount(id) {
             if (!confirm('Are you sure you want to delete this account?')) {
                 return;
             }
 
             try {
-                const response = await fetch(`/api/accounts/${id}`, { method: 'DELETE' });
+                const response = await fetch(
+                    `/api/accounts/${encodeURIComponent(id)}`, { method: 'DELETE' });
                 const result = await response.json();
 
                 if (result.success) {
+                    hideEditAccountForm();
                     loadAccounts();
                     loadBots();
                 } else {
@@ -1115,7 +1291,8 @@
 
         async function testConnection(id) {
             try {
-                const response = await fetch(`/api/accounts/${id}/test`, { method: 'POST' });
+                const response = await fetch(
+                    `/api/accounts/${encodeURIComponent(id)}/test`, { method: 'POST' });
                 const result = await response.json();
 
                 if (result.success) {

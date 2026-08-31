@@ -17,9 +17,12 @@ class AccountService:
         self.encryption = encryption
 
     def create_account(self, name: str, api_key: str, api_secret: str,
-                       exchange: str = "Indodax") -> Account:
+                       exchange: str = "Indodax",
+                       api_version: str = "v1") -> Account:
         """Create a new account with encrypted credentials"""
-        account = Account(name=name, exchange=exchange, is_active=True)
+        account = Account(name=name, exchange=exchange,
+                          api_version=self._normalize_api_version(api_version),
+                          is_active=True)
         account.api_key_encrypted = self.encryption.encrypt(api_key, account.id)
         account.api_secret_encrypted = self.encryption.encrypt(api_secret, account.id)
         self.db.add_account(account.to_dict())
@@ -27,7 +30,8 @@ class AccountService:
 
     def update_account(self, account_id: str, name: str = None,
                        api_key: str = None, api_secret: str = None,
-                       is_active: bool = None) -> Optional[Account]:
+                       is_active: bool = None,
+                       api_version: str = None) -> Optional[Account]:
         """Update account details"""
         account_data = self.db.get_account(account_id)
         if not account_data:
@@ -42,6 +46,8 @@ class AccountService:
             account.api_secret_encrypted = self.encryption.encrypt(api_secret, account_id)
         if is_active is not None:
             account.is_active = is_active
+        if api_version is not None:
+            account.api_version = self._normalize_api_version(api_version)
 
         account.updated_at = datetime.now().isoformat()
         self.db.update_account(account.to_dict())
@@ -78,11 +84,18 @@ class AccountService:
         except Exception as e:
             return {'success': False, 'error': f'Decryption failed: {e}'}
 
-        client = IndodaxClient(api_key, api_secret)
+        client = IndodaxClient(api_key, api_secret, account.api_version)
         result = client.test_connection()
 
         if 'error' in result:
             return {'success': False, 'error': result['error']}
+
+        if account.api_version == 'v2' and result.get('can_trade') is False:
+            error = ('API key v2 tidak memiliki izin trading atau IP belum '
+                     'masuk whitelist')
+            account.last_error = error
+            self.db.update_account(account.to_dict())
+            return {'success': False, 'error': error}
 
         # Update last_connected_at
         account.last_connected_at = datetime.now().isoformat()
@@ -107,6 +120,14 @@ class AccountService:
             return {
                 'api_key': self.encryption.decrypt(account.api_key_encrypted, account.id),
                 'api_secret': self.encryption.decrypt(account.api_secret_encrypted, account.id),
+                'api_version': self._normalize_api_version(account.api_version),
             }
         except Exception:
             return None
+
+    @staticmethod
+    def _normalize_api_version(value: str) -> str:
+        version = str(value or 'v1').strip().lower()
+        if version not in ('v1', 'v2'):
+            raise ValueError('Versi API Indodax harus v1 atau v2')
+        return version

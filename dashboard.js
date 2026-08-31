@@ -301,7 +301,8 @@ async function getAllBalances(balanceData, accountId = null) {
         return [];
     }
 
-    const client = new IndodaxClient(creds.api_key, creds.api_secret);
+    const client = new IndodaxClient(
+        creds.api_key, creds.api_secret, creds.api_version);
     const allTickers = await client.get_ticker_all();
 
     debugLog('getAllBalances: ticker response received', {
@@ -420,7 +421,8 @@ app.get('/', async (req, res) => {
         if (activeAccounts.length > 0) {
             const creds = await accounts.getDecryptedCredentials(activeAccounts[0].id);
             if (creds) {
-                const client = new IndodaxClient(creds.api_key, creds.api_secret);
+                const client = new IndodaxClient(
+                    creds.api_key, creds.api_secret, creds.api_version);
 
                 const ticker = await client.get_ticker(userConfig.TRADING_PAIR || 'btcidr');
                 currentPrice = !ticker.error ? parseFloat(ticker.last) || 0 : 0;
@@ -689,7 +691,8 @@ app.get('/api/status', async (req, res) => {
                 apiKey = creds.api_key;
                 secretKeyMasked = accounts.maskCredential(creds.api_secret);
 
-                const client = new IndodaxClient(creds.api_key, creds.api_secret);
+                const client = new IndodaxClient(
+                    creds.api_key, creds.api_secret, creds.api_version);
 
                 const ticker = await client.get_ticker(cleanPair);
                 currentPrice = !ticker.error ? parseFloat(ticker.last) || 0 : 0;
