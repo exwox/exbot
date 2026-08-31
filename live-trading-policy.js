@@ -13,7 +13,6 @@ function allowedBotIds(environment = process.env) {
 
 function liveTradingGate(environment = process.env) {
     const enabled = String(environment.LIVE_TRADING_ENABLED || '').toLowerCase() === 'true';
-    const confirmed = String(environment.LIVE_TRADING_CONFIRMATION || '') === REQUIRED_CONFIRMATION;
     const exposureLimit = Number(environment.MAX_ACCOUNT_EXPOSURE_IDR);
     const exposureConfigured = Number.isFinite(exposureLimit) && exposureLimit > 0;
     const botIds = allowedBotIds(environment);
@@ -24,13 +23,11 @@ function liveTradingGate(environment = process.env) {
         : 1;
     const reasons = [];
     if (!enabled) reasons.push('LIVE_TRADING_ENABLED bukan true');
-    if (!confirmed) reasons.push('konfirmasi risiko live belum valid');
     if (!exposureConfigured) reasons.push('MAX_ACCOUNT_EXPOSURE_IDR harus lebih dari 0');
-    if (botIds.size === 0) reasons.push('LIVE_TRADING_BOT_IDS belum diisi');
     return {
         allowed: reasons.length === 0,
         enabled,
-        confirmed,
+        // Konfirmasi risiko dan allowlist bot tidak lagi diberlakukan.
         allowlist_configured: botIds.size > 0,
         allowed_bot_count: botIds.size,
         minimum_dry_run_cycles: minimumDryRunCycles,
@@ -42,25 +39,22 @@ function liveTradingGate(environment = process.env) {
 function liveTradingReadiness(botId, completedDryRunCycles = 0,
                               environment = process.env, strategy = null) {
     const gate = liveTradingGate(environment);
-    const botAllowed = !!botId && allowedBotIds(environment).has(String(botId));
     const completedCycles = Math.max(Number(completedDryRunCycles) || 0, 0);
     const dryRunEvidenceReady = completedCycles >= gate.minimum_dry_run_cycles;
     const reasons = [...gate.reasons];
-    if (!botAllowed) reasons.push('bot tidak termasuk LIVE_TRADING_BOT_IDS');
     if (!dryRunEvidenceReady) {
         reasons.push(`siklus dry-run selesai ${completedCycles}/${gate.minimum_dry_run_cycles}`);
     }
     const plannedCapital = strategy ? calculateRequiredCapital(strategy) : 0;
-    const stopLossPercent = Number(strategy?.stop_loss_percent) || 0;
     const maxPositionAmount = Number(strategy?.max_position_amount) || 0;
+    // Stop-loss 0 diperbolehkan; yang wajib adalah modal siklus ditutup oleh
+    // batas posisi dan exposure akun.
     const strategyRiskReady = Boolean(strategy)
         && plannedCapital > 0
-        && stopLossPercent > 0
         && maxPositionAmount >= plannedCapital
         && gate.exposure_limit_idr >= plannedCapital;
     if (!strategy) reasons.push('strategi bot tidak tersedia');
     else {
-        if (!(stopLossPercent > 0)) reasons.push('stop-loss strategi harus lebih dari 0%');
         if (!(maxPositionAmount >= plannedCapital)) {
             reasons.push(`batas posisi Rp${maxPositionAmount} di bawah modal siklus Rp${plannedCapital}`);
         }
@@ -70,13 +64,14 @@ function liveTradingReadiness(botId, completedDryRunCycles = 0,
     }
     return {
         ...gate,
-        allowed: gate.allowed && botAllowed && dryRunEvidenceReady && strategyRiskReady,
-        bot_allowed: botAllowed,
+        allowed: gate.allowed && dryRunEvidenceReady && strategyRiskReady,
+        // Tanpa allowlist, setiap bot yang memenuhi gate diizinkan.
+        bot_allowed: true,
         completed_dry_run_cycles: completedCycles,
         dry_run_evidence_ready: dryRunEvidenceReady,
         strategy_risk_ready: strategyRiskReady,
         planned_capital_idr: plannedCapital,
-        stop_loss_percent: stopLossPercent,
+        stop_loss_percent: Number(strategy?.stop_loss_percent) || 0,
         max_position_amount: maxPositionAmount,
         reasons
     };

@@ -360,8 +360,9 @@ class BotManager:
                 account_id=account_id,
                 bot_id=bot_id,
                 message=(
-                    'Live trading diblokir: aktifkan flag, konfirmasi risiko, '
-                    'dan exposure cap sebelum menjalankan worker'
+                    'Live trading diblokir: aktifkan LIVE_TRADING_ENABLED, '
+                    'pastikan exposure cap dan batas posisi cukup, serta '
+                    'selesaikan siklus dry-run sebelum menjalankan worker'
                 ),
             )
         except Exception as error:

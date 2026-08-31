@@ -274,7 +274,8 @@ test('authentication is tenant-safe and survives a dashboard restart', async () 
         `${baseUrl}/api/live-readiness?bot_id=${encodeURIComponent(dryBot.data.id)}`,
         { headers: { cookie } })).json();
     assert.equal(botReadiness.data.allowed, false);
-    assert.equal(botReadiness.data.bot_allowed, false);
+    // Allowlist bot sudah dihapus; gate tetap tertutup karena flag master off.
+    assert.equal(botReadiness.data.bot_allowed, true);
     assert.equal(botReadiness.data.completed_dry_run_cycles, 0);
     assert.equal(botReadiness.data.strategy_risk_ready, false);
     const blockedModeChange = await fetch(`${baseUrl}/api/bots/${dryBot.data.id}`, {

@@ -76,8 +76,8 @@ ADMIN_USERNAME=admin
 ADMIN_PASSWORD=<password unik minimal 10 karakter>
 MAX_ACCOUNT_EXPOSURE_IDR=0
 LIVE_TRADING_ENABLED=false
-LIVE_TRADING_CONFIRMATION=
-LIVE_TRADING_BOT_IDS=
+LIVE_TRADING_CONFIRMATION=   # opsional; tidak lagi diberlakukan oleh gate
+LIVE_TRADING_BOT_IDS=        # opsional; tidak lagi diberlakukan oleh gate
 LIVE_MIN_DRY_RUN_CYCLES=1
 API_CIRCUIT_FAILURE_THRESHOLD=5
 API_CIRCUIT_COOLDOWN_SECONDS=120
@@ -123,11 +123,11 @@ Sebelum live trading, ubah `MAX_ACCOUNT_EXPOSURE_IDR` dari `0` ke batas total
 modal aktif yang benar-benar disetujui untuk setiap akun. Nilai ini mencakup BO
 dan seluruh SO yang direncanakan oleh siklus aktif.
 
-Live trading bersifat fail-closed. Setelah seluruh checklist operator selesai,
-set `LIVE_TRADING_ENABLED=true`, isi `LIVE_TRADING_CONFIRMATION` dengan frasa
-yang didokumentasikan di [OPERATIONS.md](OPERATIONS.md), masukkan ID bot yang
-telah lulus dry-run ke `LIVE_TRADING_BOT_IDS`, dan restart kedua runtime. Bot
-harus berstatus `STOPPED` ketika mode diubah.
+Live trading bersifat fail-closed. Setelah strategi bot memakai batas posisi
+yang cukup untuk modal siklusnya dan melewati minimal `LIVE_MIN_DRY_RUN_CYCLES`
+siklus dry-run, set `LIVE_TRADING_ENABLED=true`, lalu restart kedua runtime.
+`LIVE_TRADING_CONFIRMATION` dan `LIVE_TRADING_BOT_IDS` tidak lagi diberlakukan
+oleh gate. Bot harus berstatus `STOPPED` ketika mode dry-run/live diubah.
 
 Backup database terenkripsi dapat dibuat dengan `npm run backup:db`. Detail
 verifikasi, restore drill, retensi, dan penjadwalan tersedia di

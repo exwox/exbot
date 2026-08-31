@@ -1051,7 +1051,11 @@
                 if (result.success) {
                     Object.assign(selectedDcaStrategy, settings);
                     if (selectedDcaBot.name !== botName || selectedDcaBot.pair !== pair || selectedDcaBot.dry_run !== form.elements.dry_run.checked) {
-                        await fetch(`/api/bots/${selectedDcaBot.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...selectedDcaBot, name: botName, pair, dry_run: form.elements.dry_run.checked }) });
+                        const botResponse = await fetch(`/api/bots/${selectedDcaBot.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...selectedDcaBot, name: botName, pair, dry_run: form.elements.dry_run.checked }) });
+                        const botResult = await botResponse.json();
+                        if (!botResponse.ok || !botResult.success) {
+                            throw new Error(`Mode bot tidak berubah: ${botResult.error || `HTTP ${botResponse.status}`}`);
+                        }
                     }
                     await loadBots();
                     if (selectedDcaBot) {
@@ -1059,7 +1063,7 @@
                         if (updatedBot) selectedDcaBot = updatedBot;
                     }
                 }
-            } catch (_) { showSettingsAlert('Tidak dapat terhubung ke server.', 'danger'); }
+            } catch (error) { showSettingsAlert(`Gagal menyimpan: ${error.message}`, 'danger'); }
         }
 
         function showAddAccountForm() {

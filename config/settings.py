@@ -67,6 +67,8 @@ TELEGRAM_PRICE_CHANGE_PERCENT = max(
     0.1, float(os.getenv('TELEGRAM_PRICE_CHANGE_PERCENT', '5')))
 LIVE_TRADING_ENABLED = os.getenv(
     'LIVE_TRADING_ENABLED', 'false').strip().lower() == 'true'
+# Live trading tidak lagi mewajibkan konfirmasi risiko eksplisit maupun
+# allowlist ID bot. Variabel berikut tetap dibaca agar env lama kompatibel.
 LIVE_TRADING_CONFIRMATION = os.getenv('LIVE_TRADING_CONFIRMATION', '')
 LIVE_TRADING_BOT_IDS = frozenset(
     value.strip() for value in os.getenv('LIVE_TRADING_BOT_IDS', '').split(',')
@@ -93,19 +95,17 @@ def _planned_strategy_capital(strategy: dict | None) -> float:
 def live_trading_allowed_for(bot_id: str,
                              completed_dry_run_cycles: int = 0,
                              strategy: dict | None = None) -> bool:
+    # LIVE_TRADING_CONFIRMATION dan LIVE_TRADING_BOT_IDS tidak lagi
+    # diberlakukan. Yang wajib: flag master on, modal & batas posisi cukup,
+    # exposure cap cukup, dan jumlah siklus dry-run selesai terpenuhi.
     planned_capital = _planned_strategy_capital(strategy)
-    stop_loss = float(strategy.get('stop_loss_percent', 0) or 0) \
-        if strategy else 0
     max_position = float(strategy.get('max_position_amount', 0) or 0) \
         if strategy else 0
     return (
         LIVE_TRADING_ENABLED
-        and LIVE_TRADING_CONFIRMATION == 'I_ACCEPT_LIVE_TRADING_RISK'
         and planned_capital > 0
-        and stop_loss > 0
         and max_position >= planned_capital
         and MAX_ACCOUNT_EXPOSURE_IDR >= planned_capital
-        and str(bot_id) in LIVE_TRADING_BOT_IDS
         and completed_dry_run_cycles >= LIVE_MIN_DRY_RUN_CYCLES
     )
 
