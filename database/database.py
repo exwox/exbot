@@ -28,6 +28,9 @@ class ResilientCursor(sqlite3.Cursor):
                 if 'locked' not in str(error).lower() or attempt == self.RETRIES - 1:
                     raise
                 time.sleep(0.05 * (2 ** attempt))
+        # The final attempt always re-raises, so this is unreachable when
+        # RETRIES >= 1; it keeps every code path returning or raising.
+        raise sqlite3.OperationalError('database is locked')
 
 
 class ResilientConnection(sqlite3.Connection):

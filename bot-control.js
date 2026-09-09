@@ -2,14 +2,13 @@
  * bot-control.js
  * Shared, ownership-scoped bot control (start / stop / reset) used by both the
  * HTTP API (api-endpoints.js) and the Telegram command service. Keeping this
- * in one place ensures every entry point applies the same fail-closed rules:
- * live gate check on start, tracked-order cancellation on stop, and no reset
+ * in one place ensures every entry point applies the same order lifecycle:
+ * tracked-order cancellation on stop, and no reset
  * while tracked exchange cancellations are unconfirmed.
  */
 'use strict';
 
 const { IndodaxClient } = require('./indodax-client');
-const { requireLiveTrading } = require('./live-trading-policy');
 const accounts = require('./accounts');
 
 let db = null;
@@ -34,13 +33,6 @@ async function ownedBot(userId, botId) {
     if (!bot) return null;
     const account = await accounts.getUserAccount(userId, bot.account_id);
     return account ? bot : null;
-}
-
-async function requireBotLiveTrading(bot) {
-    const completedDryCycles = await db.getCompletedDryRunCycleCount(bot.id);
-    const strategy = bot.strategy_id
-        ? await db.getStrategy(bot.strategy_id) : null;
-    return requireLiveTrading(bot.id, completedDryCycles, process.env, strategy);
 }
 
 async function getPositionRobust(botId) {
@@ -77,7 +69,7 @@ async function cancelTrackedBotOrders(bot, position, client, ledgerOrders = null
 
     const failures = [];
     for (const [key, order] of tracked.entries()) {
-        if (bot.dry_run) {
+        if (bot.dry_run || order.exchange_order_id?.startsWith('DRY_')) {
             if (order.ledger_id) await db.updateOrderStatus(order.ledger_id, 'CANCELLED');
             continue;
         }
@@ -168,9 +160,6 @@ async function startBot(userId, botId) {
         const error = new Error('Bot sudah berjalan.');
         error.statusCode = 409;
         throw error;
-    }
-    if (!bot.dry_run) {
-        await requireBotLiveTrading(bot);
     }
     bot.status = 'RUNNING';
     await db.updateBot(bot);

@@ -21,7 +21,6 @@ from services.encryption_service import EncryptionService
 from exchanges.indodax_client import IndodaxClient
 from core.bot_worker import BotWorker
 from config.constants import BotStatus, AccountStatus
-from config.settings import live_trading_allowed_for
 from config.strategy_defaults import strategy_defaults
 
 
@@ -99,10 +98,15 @@ class BotManager:
                         self._logger.info(
                             "Recreating worker %s after account/bot configuration change",
                             bot_id)
-                        worker.stop()
+                        if not worker.stop(persist_status=False):
+                            # Finish the old tick before starting a new worker.
+                            continue
                         with self._lock:
                             self.workers.pop(bot_id, None)
                         worker = None
+                        bot_data = self.db.get_bot(bot_id)
+                        if not bot_data or bot_data.get('status') != 'RUNNING':
+                            continue
                     if worker is None:
                         self._logger.info(f"Starting requested bot worker: {bot_id}")
                         self._start_single_worker(account, bot_data)
@@ -117,9 +121,9 @@ class BotManager:
                             self._logger.info(f"Resuming requested bot worker: {bot_id}")
                             worker.start()
                 elif worker:
-                    if worker.status != BotStatus.STOPPED:
-                        self._logger.info(f"Stopping requested bot worker: {bot_id}")
-                        worker.stop()
+                    self._logger.info(f"Stopping requested bot worker: {bot_id}")
+                    if not worker.stop():
+                        continue
                     # Do not retain decrypted credentials/version while idle.
                     with self._lock:
                         self.workers.pop(bot_id, None)
@@ -149,11 +153,6 @@ class BotManager:
         dry_run = bool(bot_data.get('dry_run', True))
         strategy_config = self._get_strategy_config(bot_data.get('strategy_id'))
 
-        completed_dry_cycles = self.db.get_completed_dry_run_cycle_count(bot_id)
-        if (not dry_run and not live_trading_allowed_for(
-                bot_id, completed_dry_cycles, strategy_config)):
-            self._block_live_worker(account.id, bot_data)
-            return None
         if not dry_run:
             try:
                 self.db.resolve_alert(f'live-gate:{bot_id}')
@@ -270,13 +269,6 @@ class BotManager:
         account = Account.from_dict(account_data)
 
         strategy_config = self._get_strategy_config(strategy_id)
-        completed_dry_cycles = self.db.get_completed_dry_run_cycle_count(bot_id)
-        if (not dry_run and not live_trading_allowed_for(
-                bot_id, completed_dry_cycles, strategy_config)):
-            self._block_live_worker(account.id, {
-                'id': bot_id, 'status': 'STOPPED'
-            })
-            return None
 
         # Create and return worker without starting
         creds = self.account_service.get_decrypted_credentials(account.id)
@@ -343,30 +335,6 @@ class BotManager:
             self.db.resolve_alert(f'credential-decryption:{account_id}')
         except Exception as error:
             self._logger.error("Failed to resolve credential alert: %s", error)
-
-    def _block_live_worker(self, account_id: str, bot_data: dict):
-        bot_id = bot_data['id']
-        self._logger.error(
-            "Live worker %s blocked by production rollout gate", bot_id)
-        stored_bot = self.db.get_bot(bot_id)
-        if stored_bot and stored_bot.get('status') != 'STOPPED':
-            stored_bot['status'] = 'STOPPED'
-            self.db.update_bot(stored_bot)
-        try:
-            self.db.raise_alert(
-                kind='LIVE_TRADING_BLOCKED',
-                dedupe_key=f'live-gate:{bot_id}',
-                severity='CRITICAL',
-                account_id=account_id,
-                bot_id=bot_id,
-                message=(
-                    'Live trading diblokir: aktifkan LIVE_TRADING_ENABLED, '
-                    'pastikan exposure cap dan batas posisi cukup, serta '
-                    'selesaikan siklus dry-run sebelum menjalankan worker'
-                ),
-            )
-        except Exception as error:
-            self._logger.error("Failed to persist live gate alert: %s", error)
 
     def remove_bot_worker(self, bot_id: str):
         """Remove a bot worker (stop first if running)"""

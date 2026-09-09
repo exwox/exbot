@@ -73,22 +73,23 @@ class AccountExposureTest(unittest.TestCase):
         self.db.close_position('bot_existing', 'CLOSED')
         self.assertEqual(self.db.get_account_exposure('account_exp'), 0)
 
-    def test_account_limit_blocks_before_exchange_submit(self):
+    def test_legacy_limits_do_not_block_exchange_submit(self):
         client = ExposureExchange()
         worker = BotWorker(
             'account_exp', 'bot_new', 'btcidr', client,
             {'base_order_amount': 10_000, 'safety_order_amount': 10_000,
-             'max_safety_orders': 1},
+             'max_safety_orders': 1, 'max_position_amount': 1},
             self.db, dry_run=False,
         )
 
-        with patch('core.bot_worker.MAX_ACCOUNT_EXPOSURE_IDR', 60_000):
+        with patch.dict(os.environ, {'MAX_ACCOUNT_EXPOSURE_IDR': '1'}), \
+                patch.object(worker, '_submit_or_recover_base') as submit:
             worker._execute_start_bot(10_000)
+            submit.assert_called_once()
 
-        self.assertEqual(client.buy_count, 0)
-        self.assertIsNone(self.db.get_position('bot_new'))
+        self.assertEqual(self.db.get_position('bot_new')['status'], 'PENDING_BASE')
         self.assertEqual(
-            self.db.get_account_exposure('account_exp'), 50_000)
+            self.db.get_account_exposure('account_exp'), 70_000)
 
 
 if __name__ == '__main__':

@@ -26,6 +26,9 @@ function startServer() {
             ENCRYPTION_KEY: 'integration-test-master-key-32-bytes',
             MANAGER_HEARTBEAT_PATH: heartbeatPath,
             NODE_ENV: 'test',
+            LIVE_TRADING_ENABLED: 'false',
+            LIVE_MIN_DRY_RUN_CYCLES: '100',
+            MAX_ACCOUNT_EXPOSURE_IDR: '1',
         },
         stdio: ['ignore', 'ignore', 'pipe'],
     });
@@ -222,7 +225,7 @@ test('authentication is tenant-safe and survives a dashboard restart', async () 
 
     const liveReadiness = await (await fetch(
         `${baseUrl}/api/live-readiness`, { headers: { cookie } })).json();
-    assert.equal(liveReadiness.data.allowed, false);
+    assert.equal(liveReadiness.data.allowed, true);
     assert.equal(liveReadiness.data.exposure_limit_idr, 0);
     const blockedLiveBot = await fetch(`${baseUrl}/api/bots`, {
         method: 'POST', headers: { cookie, 'content-type': 'application/json' },
@@ -231,8 +234,8 @@ test('authentication is tenant-safe and survives a dashboard restart', async () 
             dry_run: false
         }),
     });
-    assert.equal(blockedLiveBot.status, 409);
-    assert.equal((await blockedLiveBot.json()).success, false);
+    assert.equal(blockedLiveBot.status, 200);
+    assert.equal((await blockedLiveBot.json()).data.dry_run, false);
     const dryBotResponse = await fetch(`${baseUrl}/api/bots`, {
         method: 'POST', headers: { cookie, 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -273,16 +276,62 @@ test('authentication is tenant-safe and survives a dashboard restart', async () 
     const botReadiness = await (await fetch(
         `${baseUrl}/api/live-readiness?bot_id=${encodeURIComponent(dryBot.data.id)}`,
         { headers: { cookie } })).json();
-    assert.equal(botReadiness.data.allowed, false);
-    // Allowlist bot sudah dihapus; gate tetap tertutup karena flag master off.
+    assert.equal(botReadiness.data.allowed, true);
+    assert.equal(botReadiness.data.gate_enforced, false);
     assert.equal(botReadiness.data.bot_allowed, true);
     assert.equal(botReadiness.data.completed_dry_run_cycles, 0);
-    assert.equal(botReadiness.data.strategy_risk_ready, false);
+    assert.equal(botReadiness.data.strategy_risk_ready, true);
     const blockedModeChange = await fetch(`${baseUrl}/api/bots/${dryBot.data.id}`, {
         method: 'PUT', headers: { cookie, 'content-type': 'application/json' },
         body: JSON.stringify({ dry_run: false }),
     });
-    assert.equal(blockedModeChange.status, 403);
+    assert.equal(blockedModeChange.status, 200);
+
+    // A running simulation with open orders can save real mode and strategy
+    // together, even with no completed cycles and zero legacy position cap.
+    const simulation = await (await fetch(`${baseUrl}/api/bots`, {
+        method: 'POST', headers: { cookie, 'content-type': 'application/json' },
+        body: JSON.stringify({ account_id: accountId, name: 'Switch Test' })
+    })).json();
+    const simulationId = simulation.data.id;
+    await insertEmergencyState(accountId, simulationId);
+    await fetch(`${baseUrl}/api/bots/${simulationId}/start`, {
+        method: 'POST', headers: { cookie }
+    });
+    const settingsPayload = {
+        bot_id: simulationId, strategy_id: simulation.data.strategy_id,
+        settings: { dry_run: false, bot_name: 'Real Saved',
+            base_order_amount: 20000, max_position_amount: 0, stop_loss_percent: 0 }
+    };
+    const invalidSave = await fetch(`${baseUrl}/api/settings`, {
+        method: 'POST', headers: { cookie, 'content-type': 'application/json' },
+        body: JSON.stringify({ ...settingsPayload,
+            settings: { ...settingsPayload.settings, base_order_amount: -1 } })
+    });
+    assert.equal(invalidSave.status, 400);
+    let settingsState = await (await fetch(`${baseUrl}/api/settings`, { headers: { cookie } })).json();
+    assert.equal(settingsState.data.bots.find(b => b.id === simulationId).dry_run, true);
+    const realSave = await fetch(`${baseUrl}/api/settings`, {
+        method: 'POST', headers: { cookie, 'content-type': 'application/json' },
+        body: JSON.stringify(settingsPayload)
+    });
+    const realSaved = await realSave.json();
+    assert.equal(realSave.status, 200, JSON.stringify(realSaved));
+    assert.equal(realSaved.data.dry_run, false);
+    assert.equal(realSaved.data.status, 'RUNNING');
+    assert.equal(realSaved.data.name, 'Real Saved');
+    settingsState = await (await fetch(`${baseUrl}/api/settings`, { headers: { cookie } })).json();
+    assert.equal(settingsState.data.strategies.find(s => s.id === simulation.data.strategy_id).base_order_amount, 20000);
+    assert.equal((await readEmergencyState(simulationId)).cycle_status, 'OPEN');
+    const pairSave = await fetch(`${baseUrl}/api/settings`, {
+        method: 'POST', headers: { cookie, 'content-type': 'application/json' },
+        body: JSON.stringify({ ...settingsPayload,
+            settings: { ...settingsPayload.settings, pair: 'ethidr' } })
+    });
+    const pairSaved = await pairSave.json();
+    assert.equal(pairSave.status, 200, JSON.stringify(pairSaved));
+    assert.equal(pairSaved.data.pair, 'ethidr');
+    assert.equal((await readEmergencyState(simulationId)).cycle_status, 'CLOSED');
 
     const second = await registerAndLogin('seconduser', 'second@example.com');
     const secondAccounts = await (await fetch(`${baseUrl}/api/accounts`, { headers: { cookie: second.cookie } })).json();

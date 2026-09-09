@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Safely set bounded risk values for an existing dry-run bot."""
+"""Set stop-loss and legacy position metadata; neither is a live-mode gate."""
 import argparse
 import json
+import math
 import os
 import sqlite3
 from datetime import datetime, timezone
@@ -31,10 +32,10 @@ def planned_capital(strategy: dict) -> float:
 
 def set_bot_risk(database_path: Path, bot_id: str, stop_loss: float,
                  max_position: float, apply: bool = False) -> dict:
-    if not 0 < stop_loss <= 100:
-        raise ValueError('stop-loss harus lebih dari 0 dan maksimal 100 persen')
-    if max_position <= 0:
-        raise ValueError('batas posisi harus lebih dari 0')
+    if not math.isfinite(stop_loss) or not 0 <= stop_loss <= 100:
+        raise ValueError('stop-loss harus antara 0 dan 100 persen')
+    if not math.isfinite(max_position) or max_position < 0:
+        raise ValueError('nilai posisi tidak boleh negatif')
 
     connection = sqlite3.connect(str(database_path), timeout=30)
     connection.row_factory = sqlite3.Row
@@ -49,18 +50,13 @@ def set_bot_risk(database_path: Path, bot_id: str, stop_loss: float,
         if not row:
             raise ValueError('bot atau strategi tidak ditemukan')
         strategy = dict(row)
-        if not bool(strategy['dry_run']):
-            raise ValueError('profil risiko hanya boleh diubah oleh alat ini saat bot dry-run')
         required = planned_capital(strategy)
         if required <= 0:
             raise ValueError('modal siklus tidak valid')
-        if max_position < required:
-            raise ValueError(
-                f'batas posisi {max_position:.0f} di bawah modal siklus {required:.0f}')
 
         result = {
             'bot_id': str(bot_id),
-            'dry_run': True,
+            'dry_run': bool(strategy['dry_run']),
             'status': strategy['status'],
             'planned_capital_idr': required,
             'previous_stop_loss_percent': float(
@@ -97,7 +93,8 @@ def main() -> int:
         'data/dca_bot.db'))
     parser.add_argument('--bot-id', required=True)
     parser.add_argument('--stop-loss', type=float, required=True)
-    parser.add_argument('--max-position', type=float, required=True)
+    parser.add_argument('--max-position', type=float, required=True,
+                        help='metadata kompatibilitas; tidak membatasi entry')
     parser.add_argument('--apply', action='store_true')
     args = parser.parse_args()
     result = set_bot_risk(

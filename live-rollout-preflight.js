@@ -11,15 +11,11 @@ function evaluateLiveRolloutPreflight(snapshot, environment = process.env) {
     const reasons = [...readiness.reasons];
 
     if (!bot) reasons.push('bot tidak ditemukan');
-    if (bot && !Boolean(bot.dry_run)) reasons.push('bot sudah bukan dry-run');
-    if (bot && String(bot.status).toUpperCase() !== 'STOPPED') {
-        reasons.push('bot harus berstatus STOPPED');
-    }
-    if (bot && !Boolean(bot.account_active)) reasons.push('account bot tidak aktif');
-    if (Number(snapshot?.activePositions) > 0) reasons.push('masih ada posisi aktif');
-    if (Number(snapshot?.recoverableOrders) > 0) {
-        reasons.push('masih ada order atau intent yang harus direkonsiliasi');
-    }
+    // These are observations, not requirements for selecting real mode.
+    const notes = [];
+    if (bot && !Boolean(bot.account_active)) notes.push('account tidak aktif; worker tidak berjalan');
+    if (Number(snapshot?.activePositions) > 0) notes.push('posisi aktif akan diproses oleh worker sesuai mode siklus');
+    if (Number(snapshot?.recoverableOrders) > 0) notes.push('order tercatat akan direkonsiliasi oleh worker');
 
     return {
         allowed: readiness.allowed && reasons.length === 0,
@@ -30,6 +26,7 @@ function evaluateLiveRolloutPreflight(snapshot, environment = process.env) {
         active_positions: Number(snapshot?.activePositions) || 0,
         recoverable_orders: Number(snapshot?.recoverableOrders) || 0,
         readiness,
+        notes,
         reasons: [...new Set(reasons)]
     };
 }

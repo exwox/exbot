@@ -74,11 +74,6 @@ Salin output ke file `.env`:
 ENCRYPTION_KEY=<generated_key>
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=<password unik minimal 10 karakter>
-MAX_ACCOUNT_EXPOSURE_IDR=0
-LIVE_TRADING_ENABLED=false
-LIVE_TRADING_CONFIRMATION=   # opsional; tidak lagi diberlakukan oleh gate
-LIVE_TRADING_BOT_IDS=        # opsional; tidak lagi diberlakukan oleh gate
-LIVE_MIN_DRY_RUN_CYCLES=1
 API_CIRCUIT_FAILURE_THRESHOLD=5
 API_CIRCUIT_COOLDOWN_SECONDS=120
 TELEGRAM_PRICE_CHANGE_PERCENT=5
@@ -119,16 +114,14 @@ Secara default Compose hanya mempublikasikan dashboard ke
 
 Administrator dibuat saat startup pertama. Setelah berhasil, hapus `ADMIN_PASSWORD` dari environment agar password bootstrap tidak tersimpan permanen.
 
-Sebelum live trading, ubah `MAX_ACCOUNT_EXPOSURE_IDR` dari `0` ke batas total
-modal aktif yang benar-benar disetujui untuk setiap akun. Nilai ini mencakup BO
-dan seluruh SO yang direncanakan oleh siklus aktif.
-
-Live trading bersifat fail-closed. Setelah strategi bot memakai batas posisi
-yang cukup untuk modal siklusnya dan melewati minimal `LIVE_MIN_DRY_RUN_CYCLES`
-siklus dry-run (isi `0` untuk menonaktifkan syarat bukti dry-run ini), set
-`LIVE_TRADING_ENABLED=true`, lalu restart kedua runtime.
-`LIVE_TRADING_CONFIRMATION` dan `LIVE_TRADING_BOT_IDS` tidak lagi diberlakukan
-oleh gate. Bot harus berstatus `STOPPED` ketika mode dry-run/live diubah.
+Mode real dipilih langsung dari Settings → Mode Trading → Real → Simpan.
+Tidak ada gate environment, minimum dry-run, allowlist, konfirmasi, kewajiban
+stop-loss, batas posisi, atau cap exposure. Variabel gate lama diabaikan.
+Bot dry run yang RUNNING dapat beralih langsung: worker lama diselesaikan,
+siklus simulasi diarsipkan, kemudian worker real memakai strategi terbaru.
+Bot STOPPED tetap menunggu Start. Kembali dari real ke simulasi memerlukan Stop
+untuk pembatalan order exchange. Saldo aktual dan validitas order tetap diperiksa.
+Lihat [panduan mode real](ROLLOUT_LIVE_CHECKLIST.md).
 
 Backup database terenkripsi dapat dibuat dengan `npm run backup:db`. Detail
 verifikasi, restore drill, retensi, dan penjadwalan tersedia di
@@ -233,7 +226,7 @@ bash scripts/run_python.sh scripts/migrate_credentials.py
 
 ### Status
 - `GET /api/status` - Get system status
-- `GET /api/live-readiness?bot_id=:id` - Status gate dan bukti dry-run bot tanpa membuka secret
+- `GET /api/live-readiness?bot_id=:id` - Laporan mode real dan riwayat dry-run (informatif, bukan gate)
 - `GET /api/balances` - Get balances
 - `GET /api/trades` - Get trade history
 - `GET /api/open-orders` - Get open orders
@@ -256,7 +249,7 @@ bash scripts/run_python.sh scripts/migrate_credentials.py
 1. **Backup `.env`** - Jangan hilangkan encryption key, atau data terenkripsi tidak bisa di-decrypt
 2. **Backup `data/dca_bot.db`** - Berisi semua akun, bot, dan history
 3. Gunakan API key exchange tanpa izin withdrawal.
-4. Bot baru menggunakan dry-run secara default. Aktifkan live hanya setelah pengujian dan backup.
+4. Bot baru menggunakan dry-run secara default. Pilih Real dan Simpan untuk menggunakan uang asli.
 
 ## Pengujian
 

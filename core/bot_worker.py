@@ -20,7 +20,6 @@ from config.settings import (
     BOT_CHECK_INTERVAL,
     API_CIRCUIT_FAILURE_THRESHOLD,
     API_CIRCUIT_COOLDOWN_SECONDS,
-    MAX_ACCOUNT_EXPOSURE_IDR,
     TELEGRAM_PRICE_CHANGE_PERCENT,
 )
 from utils.redaction import redact_sensitive
@@ -115,7 +114,7 @@ class BotWorker:
         self._log(LogEvent.BOT_START, f"Bot started for {self.pair}")
         self._update_bot_status(BotStatus.RUNNING)
 
-    def stop(self):
+    def stop(self, persist_status: bool = True) -> bool:
         """Stop the bot worker gracefully"""
         self._cancel_orders_on_stop = True
         self._stop_event.set()
@@ -136,8 +135,9 @@ class BotWorker:
                       level="WARNING")
             self._log(LogEvent.BOT_STOP,
                       f"Bot stop requested for {self.pair}; final order cancellation is pending")
-            self._update_bot_status(BotStatus.STOPPED)
-            return
+            if persist_status:
+                self._update_bot_status(BotStatus.STOPPED)
+            return False
         # A Stop command must not leave the bot's TP/SO orders working on the
         # exchange. _cancel_all_orders is scoped to this bot's stored ids.
         # The exiting worker may already have performed this cancellation.
@@ -146,7 +146,9 @@ class BotWorker:
             self._cancel_orders_on_stop = False
         self.status = BotStatus.STOPPED
         self._log(LogEvent.BOT_STOP, f"Bot stopped for {self.pair}")
-        self._update_bot_status(BotStatus.STOPPED)
+        if persist_status:
+            self._update_bot_status(BotStatus.STOPPED)
+        return True
 
     def pause(self):
         """Pause the bot worker"""
@@ -520,6 +522,9 @@ class BotWorker:
             self.db.close_position(self.bot_id, 'SIMULATION_CLOSED')
             self._log(LogEvent.BOT_STOP, "Previous dry-run position archived before live trading")
             position = None
+            self._rebuild_active_position_on_start = False
+            self._force_base_order_on_start = (
+                self.strategy.initial_entry_mode in ('MARKET', 'LIMIT'))
         if position and self.dry_run:
             # Older dry-run positions could contain every SO at the same
             # price when Step Scale was off.  These orders are local-only, so
@@ -717,14 +722,6 @@ class BotWorker:
     def _execute_start_bot(self, current_price: float):
         """Execute base order and place all safety orders + TP"""
         planned_capital = self.strategy.planned_capital()
-        if (self.strategy.max_position_amount > 0 and
-                planned_capital > self.strategy.max_position_amount):
-            self._log(
-                LogEvent.ORDER_FAILED,
-                f"Planned capital Rp {planned_capital:,.0f} exceeds max position Rp {self.strategy.max_position_amount:,.0f}",
-                level="ERROR",
-            )
-            return
         if not self.dry_run:
             balance = self.client.get_balance()
             if not isinstance(balance, dict) or balance.get('error'):
@@ -790,22 +787,9 @@ class BotWorker:
             # call. A crash at any later instruction is recoverable by the
             # same client_order_id.
             # The supported runtime has one Python manager. This per-account
-            # lock makes the exposure check + reservation atomic across its
-            # worker threads before any exchange mutation is allowed.
+            # lock serializes position reservations across worker threads.
+            # Exposure is reported without enforcing a cap.
             with self._account_exposure_lock(self.account_id):
-                current_exposure = self.db.get_account_exposure(
-                    self.account_id)
-                projected_exposure = current_exposure + planned_capital
-                if (MAX_ACCOUNT_EXPOSURE_IDR > 0 and
-                        projected_exposure > MAX_ACCOUNT_EXPOSURE_IDR):
-                    self._log(
-                        LogEvent.ORDER_FAILED,
-                        f"Account exposure limit blocks entry: current "
-                        f"Rp {current_exposure:,.0f} + planned "
-                        f"Rp {planned_capital:,.0f} exceeds "
-                        f"Rp {MAX_ACCOUNT_EXPOSURE_IDR:,.0f}",
-                        level="ERROR")
-                    return
                 self.db.save_position(position)
             intent = self._create_order_intent(
                 position, role, 'buy', current_price, gross_crypto,
@@ -2177,9 +2161,13 @@ class BotWorker:
 
     def _cancel_all_orders(self):
         """Cancel only the TP/SO ids persisted for this bot."""
-        if self.dry_run:
+        position = self.db.get_position(self.bot_id)
+        simulated_position = position and self._is_simulated_position(position)
+        if self.dry_run and position and not simulated_position:
+            # A real position survives a switch back to simulation.
+            return
+        if self.dry_run or simulated_position:
             # Simulation only: clear local pseudo-orders.
-            position = self.db.get_position(self.bot_id)
             for intent in self.db.get_open_orders(self.bot_id):
                 self.db.update_order_status(intent['id'], 'CANCELLED')
             if position:
@@ -2192,7 +2180,6 @@ class BotWorker:
             return
 
         # Cancel tracked orders in position
-        position = self.db.get_position(self.bot_id)
         failed_exchange_ids = set()
         failed_references = set()
         if position:

@@ -2,7 +2,19 @@
 
 Dokumen ini adalah roadmap perbaikan XBot berdasarkan audit arsitektur, autentikasi, penyimpanan kredensial, deployment Docker, dan test suite. Target utama adalah memastikan bot aman dan stabil sebelum digunakan dalam mode live.
 
-## Status Eksekusi — 12 Agustus 2026
+## Perubahan kebijakan — 9 September 2026
+
+Gate mode real dihapus sesuai permintaan pengguna. Tidak ada syarat environment,
+bukti dry run, allowlist, konfirmasi, stop-loss, batas posisi, atau exposure.
+Bot dry run RUNNING dapat beralih ke real melalui pergantian worker; simulasi
+diarsipkan tanpa mengubah riwayatnya menjadi transaksi uang asli.
+Preflight kini diagnostik. Dokumentasi aktif: README.md, OPERATIONS.md, dan
+ROLLOUT_LIVE_CHECKLIST.md. Autentikasi dan rekonsiliasi order tetap berlaku.
+
+Bagian di bawah merupakan arsip audit dan keputusan rollout sebelumnya;
+ketentuan gate/izin rollout dalam arsip sudah digantikan kebijakan di atas.
+
+## Arsip Status Eksekusi — 12 Agustus 2026
 
 Implementasi lokal yang sudah selesai:
 

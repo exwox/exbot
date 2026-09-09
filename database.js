@@ -810,6 +810,55 @@ class Database {
         });
     }
 
+    async saveBotSettings(botId, botUpdates, strategyId, strategyUpdates) {
+        // A private connection keeps this transaction isolated from unrelated
+        // requests. Mode and strategy become visible to Python together.
+        const transaction = new Database();
+        transaction.db = await new Promise((resolve, reject) => {
+            const connection = new sqlite3.Database(DB_PATH, error =>
+                error ? reject(error) : resolve(connection));
+        });
+        const run = sql => new Promise((resolve, reject) =>
+            transaction.db.run(sql, error => error ? reject(error) : resolve()));
+        try {
+            await run('PRAGMA busy_timeout=30000');
+            await run('PRAGMA foreign_keys=ON');
+            await run('BEGIN IMMEDIATE');
+            let bot = botId ? await transaction.getBot(botId) : null;
+            if (botId && !bot) throw new Error('Bot not found');
+            if (bot && botUpdates.dry_run === true && !bot.dry_run
+                    && bot.status !== 'STOPPED') {
+                const error = new Error('Hentikan bot real sebelum kembali ke simulasi agar order exchange dapat dibatalkan');
+                error.statusCode = 409;
+                throw error;
+            }
+            if (bot && strategyId && bot.strategy_id !== strategyId) {
+                const error = new Error('Strategi tidak terhubung ke bot ini');
+                error.statusCode = 400;
+                throw error;
+            }
+            if (strategyId) {
+                const strategy = await transaction.getStrategy(strategyId);
+                if (!strategy) throw new Error('Strategy not found');
+                await transaction.updateStrategy({ ...strategy, ...strategyUpdates });
+            }
+            if (bot) {
+                if (botUpdates.pair && botUpdates.pair !== bot.pair) {
+                    await transaction.closePosition(botId, 'PAIR_CHANGED', true);
+                }
+                bot = { ...bot, ...botUpdates };
+                await transaction.updateBot(bot);
+            }
+            await run('COMMIT');
+            return bot;
+        } catch (error) {
+            await run('ROLLBACK').catch(() => {});
+            throw error;
+        } finally {
+            await new Promise(resolve => transaction.db.close(resolve));
+        }
+    }
+
     updateStrategy(strategy) {
         return new Promise((resolve, reject) => {
             strategy.updated_at = new Date().toISOString();
@@ -915,7 +964,7 @@ class Database {
         });
     }
 
-    closePosition(botId, status = 'CLOSED') {
+    closePosition(botId, status = 'CLOSED', withinTransaction = false) {
         const run = (sql, params = []) => new Promise((resolve, reject) => {
             this.db.run(sql, params, function (err) {
                 if (err) reject(err);
@@ -925,17 +974,17 @@ class Database {
 
         const now = new Date().toISOString();
         return (async () => {
-            await run('BEGIN IMMEDIATE');
+            if (!withinTransaction) await run('BEGIN IMMEDIATE');
             try {
                 const posChanges = await run("UPDATE positions SET status=?, updated_at=? WHERE bot_id=? AND status IN ('OPEN', 'PENDING_BASE')", [status, now, botId]);
                 const cycleChanges = await run('UPDATE dca_cycles SET status=\'CLOSED\', close_reason=?, closed_at=?, updated_at=? WHERE bot_id=? AND status=\'OPEN\'', [status, now, now, botId]);
                 const orderChanges = await run(`UPDATE orders SET status='CANCELLED', updated_at=?
                     WHERE bot_id=? AND status IN ('REQUESTED', 'SUBMISSION_UNKNOWN',
                     'OPEN', 'PENDING', 'PARTIALLY_FILLED')`, [now, botId]);
-                await run('COMMIT');
+                if (!withinTransaction) await run('COMMIT');
                 return { posChanges, cycleChanges, orderChanges };
             } catch (error) {
-                await run('ROLLBACK').catch(() => {});
+                if (!withinTransaction) await run('ROLLBACK').catch(() => {});
                 throw error;
             }
         })();

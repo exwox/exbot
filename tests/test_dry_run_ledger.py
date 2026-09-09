@@ -2,6 +2,7 @@ import os
 import tempfile
 import unittest
 from datetime import datetime, timezone
+from unittest.mock import Mock, patch
 
 from core.bot_worker import BotWorker
 from database.database import DatabaseManager
@@ -122,6 +123,34 @@ class DryRunLedgerTest(unittest.TestCase):
         self.db.save_position(position)
 
         self.assertTrue(self.worker._is_simulated_position(position))
+
+    def test_real_worker_archives_simulation_before_new_entry(self):
+        self.worker._execute_start_bot(100_000_000)
+        old_position = self.db.get_position('bot_dry')
+        bot = self.db.get_bot('bot_dry')
+        bot['dry_run'] = False
+        self.db.update_bot(bot)
+        worker = BotWorker('account_dry', 'bot_dry', 'btcidr', NoExchangeCalls(),
+                           {'initial_entry_mode': 'MARKET'}, self.db, dry_run=False)
+        with patch.object(worker, '_get_current_price', return_value=100_000_000), \
+                patch.object(worker, '_calculate_rsi', return_value=90), \
+                patch.object(worker, '_execute_start_bot') as entry:
+            worker._tick_once()
+            entry.assert_called_once_with(100_000_000)
+        cycle = self.db.get_cycle(old_position['id'])
+        self.assertEqual(cycle['close_reason'], 'SIMULATION_CLOSED')
+        self.assertTrue(cycle['dry_run'])
+        self.assertFalse(any(o['status'] == 'OPEN' for o in self.orders()))
+        self.assertEqual(self.db.get_completed_dry_run_cycle_count('bot_dry'), 0)
+
+    def test_transition_stop_keeps_requested_running_status(self):
+        self.worker._thread = Mock()
+        self.worker._thread.is_alive.return_value = True
+        self.assertFalse(self.worker.stop(persist_status=False))
+        self.assertEqual(self.db.get_bot('bot_dry')['status'], 'RUNNING')
+        self.worker._thread.is_alive.return_value = False
+        self.assertTrue(self.worker.stop(persist_status=False))
+        self.assertEqual(self.db.get_bot('bot_dry')['status'], 'RUNNING')
 
     def test_repairs_legacy_missing_tp_and_open_filled_base(self):
         self.worker._execute_start_bot(100_000_000)

@@ -9,11 +9,10 @@ const crypto = require('crypto');
 const { runBacktest } = require('./backtest-engine');
 const { redactSensitive } = require('./log-redaction');
 const { strategyDefaults } = require('./strategy-defaults');
+const botControl = require('./bot-control');
 const {
     liveTradingGate,
-      botControl = require("./bot-control"),
-    liveTradingReadiness,
-    requireLiveTrading
+    liveTradingReadiness
 } = require('./live-trading-policy');
 
 const MIN_SAFETY_ORDER_DISTANCE = 0.01;
@@ -384,19 +383,15 @@ router.get('/accounts/:id/exposure', async (req, res) => {
             return res.status(404).json({ success: false, error: 'Account not found' });
         }
         const exposure = await db.getAccountExposure(account.id);
-        const limit = Math.max(
-            Number(process.env.MAX_ACCOUNT_EXPOSURE_IDR) || 0, 0);
         res.set('Cache-Control', 'no-store');
         res.json({
             success: true,
             data: {
                 account_id: account.id,
                 reserved_exposure_idr: exposure,
-                limit_idr: limit,
-                remaining_capacity_idr: limit > 0
-                    ? Math.max(limit - exposure, 0)
-                    : null,
-                enforced: limit > 0,
+                limit_idr: 0,
+                remaining_capacity_idr: null,
+                enforced: false,
                 fetched_at: new Date().toISOString()
             }
         });
@@ -447,13 +442,6 @@ function parseDryRun(value, fallback = true) {
     return value;
 }
 
-async function requireBotLiveTrading(bot) {
-    const completedDryCycles = await db.getCompletedDryRunCycleCount(bot.id);
-    const strategy = bot.strategy_id
-        ? await db.getStrategy(bot.strategy_id) : null;
-    return requireLiveTrading(bot.id, completedDryCycles, process.env, strategy);
-}
-
 router.get('/live-readiness', async (req, res) => {
     await ensureInit();
     let readiness = liveTradingGate();
@@ -485,12 +473,6 @@ router.post('/bots', async (req, res) => {
             return res.status(404).json({ success: false, error: 'Account not found' });
         }
         const requestedDryRun = parseDryRun(dry_run, true);
-        if (!requestedDryRun) {
-            return res.status(409).json({
-                success: false,
-                error: 'Buat bot dalam dry-run, validasi, lalu tambahkan ID bot ke allowlist sebelum live'
-            });
-        }
 
         const botId = `bot_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
         const strategyId = `strat_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
@@ -546,22 +528,18 @@ router.put('/bots/:id', async (req, res) => {
                     return res.status(403).json({ success: false, error: `Masa sewa bot Anda telah berakhir pada ${user.expired_at}. Silakan hubungi admin untuk perpanjangan.` });
                 }
             }
-            if (requested.dry_run === undefined && !bot.dry_run) {
-                await requireBotLiveTrading(bot);
-            }
         }
 
         const updates = {};
         if (requested.name !== undefined) updates.name = sanitizeName(requested.name);
         if (requested.dry_run !== undefined) {
             updates.dry_run = parseDryRun(requested.dry_run);
-            if (updates.dry_run !== !!bot.dry_run && bot.status !== 'STOPPED') {
+            if (updates.dry_run && !bot.dry_run && bot.status !== 'STOPPED') {
                 return res.status(409).json({
                     success: false,
-                    error: 'Hentikan bot sebelum mengubah mode dry-run/live'
+                    error: 'Hentikan bot real sebelum kembali ke simulasi agar order exchange dapat dibatalkan'
                 });
             }
-            if (!updates.dry_run) await requireBotLiveTrading(bot);
         }
         if (requested.status !== undefined && ['RUNNING', 'STOPPED'].includes(requested.status)) updates.status = requested.status;
         if (requested.strategy_id !== undefined) {
@@ -711,36 +689,29 @@ router.post('/settings', async (req, res) => {
             });
         }
 
-        // Update bot if provided
+        // Validate the complete payload before changing mode or strategy.
+        const botUpdates = {};
+        const strategyUpdates = strategy_id ? sanitizeStrategyUpdates(settings) : {};
+        if (strategy_id && !await ownedStrategy(req.user.id, strategy_id)) {
+            return res.status(404).json({ success: false, error: 'Strategy not found' });
+        }
         if (bot_id) {
             const bot = await ownedBot(req.user.id, bot_id);
             if (!bot) return res.status(404).json({ success: false, error: 'Bot not found' });
             const requestedDryRun = parseDryRun(settings.dry_run, !!bot.dry_run);
-            if (requestedDryRun !== !!bot.dry_run && bot.status !== 'STOPPED') {
+            if (requestedDryRun && !bot.dry_run && bot.status !== 'STOPPED') {
                 return res.status(409).json({
                     success: false,
-                    error: 'Hentikan bot sebelum mengubah mode dry-run/live'
+                    error: 'Hentikan bot real sebelum kembali ke simulasi agar order exchange dapat dibatalkan'
                 });
             }
-            if (!requestedDryRun) await requireBotLiveTrading(bot);
-            const newPair = settings.pair ? sanitizePair(settings.pair) : bot.pair;
-            if (bot.pair !== newPair) {
-                await db.closePosition(bot.id, 'PAIR_CHANGED');
-            }
-            Object.assign(bot, {
-                pair: newPair,
-                dry_run: requestedDryRun
-            });
-            await db.updateBot(bot);
+            if (settings.pair !== undefined) botUpdates.pair = sanitizePair(settings.pair);
+            if (settings.dry_run !== undefined) botUpdates.dry_run = requestedDryRun;
+            if (settings.bot_name !== undefined) botUpdates.name = sanitizeName(settings.bot_name);
         }
-
-        // Update strategy if provided
-        if (strategy_id) {
-            const strategy = await ownedStrategy(req.user.id, strategy_id);
-            if (!strategy) return res.status(404).json({ success: false, error: 'Strategy not found' });
-            Object.assign(strategy, sanitizeStrategyUpdates(settings));
-            await db.updateStrategy(strategy);
-        }
+        const updatedBot = (bot_id || strategy_id)
+            ? await db.saveBotSettings(bot_id, botUpdates, strategy_id, strategyUpdates)
+            : null;
 
         // Update Telegram config if provided
         if (req.body.telegram_config) {
@@ -757,7 +728,7 @@ router.post('/settings', async (req, res) => {
             }
         }
 
-        res.json({ success: true, message: 'Settings updated successfully' });
+        res.json({ success: true, data: updatedBot, message: 'Settings updated successfully' });
     } catch (e) {
         res.status(e.statusCode || 500).json({ success: false, error: e.message });
     }
@@ -1352,7 +1323,7 @@ async function cancelTrackedBotOrders(bot, position, client, ledgerOrders = null
 
     const failures = [];
     for (const [key, order] of tracked.entries()) {
-        if (bot.dry_run) {
+        if (bot.dry_run || order.exchange_order_id?.startsWith('DRY_')) {
             if (order.ledger_id) await db.updateOrderStatus(order.ledger_id, 'CANCELLED');
             continue;
         }
@@ -1432,9 +1403,6 @@ async function setBotRunState(req, res, status) {
         await ensureInit();
         const bot = await ownedBot(req.user.id, req.params.id);
         if (!bot) return res.status(404).json({ success: false, error: 'Bot not found' });
-        if (status === 'RUNNING' && !bot.dry_run) {
-            await requireBotLiveTrading(bot);
-        }
         bot.status = status;
         await db.updateBot(bot);
 

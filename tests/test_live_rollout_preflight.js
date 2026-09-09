@@ -1,48 +1,28 @@
 'use strict';
-
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const { evaluateLiveRolloutPreflight } = require('../live-rollout-preflight');
 
-const environment = {
-    LIVE_TRADING_ENABLED: 'true',
-    LIVE_TRADING_CONFIRMATION: 'I_ACCEPT_LIVE_TRADING_RISK',
-    LIVE_TRADING_BOT_IDS: 'bot_pilot',
-    LIVE_MIN_DRY_RUN_CYCLES: '1',
-    MAX_ACCOUNT_EXPOSURE_IDR: '100000'
-};
-const strategy = {
-    base_order_amount: 15000,
-    safety_order_amount: 15000,
-    max_safety_orders: 5,
-    martingale_enabled: false,
-    volume_scale: 1.5,
-    stop_loss_percent: 8,
-    max_position_amount: 90000
-};
-
-test('rollout preflight accepts only a stopped and clean dry-run bot', () => {
+test('preflight reports running simulations and orders without blocking real mode', () => {
     const result = evaluateLiveRolloutPreflight({
-        bot: { id: 'bot_pilot', status: 'STOPPED', dry_run: 1, account_active: 1 },
-        strategy,
-        completedDryRunCycles: 1,
-        activePositions: 0,
-        recoverableOrders: 0
-    }, environment);
+        bot: { id: 'bot', status: 'RUNNING', dry_run: 1, account_active: 1 },
+        strategy: { base_order_amount: 15000, safety_order_amount: 15000,
+            max_safety_orders: 5, max_position_amount: 0 },
+        completedDryRunCycles: 0, activePositions: 1, recoverableOrders: 3
+    }, { LIVE_TRADING_ENABLED: 'false', LIVE_MIN_DRY_RUN_CYCLES: '100' });
     assert.equal(result.allowed, true);
+    assert.equal(result.readiness.gate_enforced, false);
+    assert.equal(result.active_positions, 1);
+    assert.equal(result.recoverable_orders, 3);
+    assert.equal(result.notes.length, 2);
     assert.deepEqual(result.reasons, []);
 });
 
-test('rollout preflight rejects active state even when environment gate passes', () => {
-    const result = evaluateLiveRolloutPreflight({
-        bot: { id: 'bot_pilot', status: 'RUNNING', dry_run: 1, account_active: 1 },
-        strategy,
-        completedDryRunCycles: 1,
-        activePositions: 1,
-        recoverableOrders: 2
-    }, environment);
-    assert.equal(result.allowed, false);
-    assert.ok(result.reasons.includes('bot harus berstatus STOPPED'));
-    assert.ok(result.reasons.includes('masih ada posisi aktif'));
-    assert.ok(result.reasons.some(reason => reason.includes('direkonsiliasi')));
+test('preflight also reports existing real bots; only missing bots fail', () => {
+    assert.equal(evaluateLiveRolloutPreflight({
+        bot: { id: 'bot', status: 'RUNNING', dry_run: 0, account_active: 1 }
+    }).allowed, true);
+    const missing = evaluateLiveRolloutPreflight({});
+    assert.equal(missing.allowed, false);
+    assert.deepEqual(missing.reasons, ['bot tidak ditemukan']);
 });

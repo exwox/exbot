@@ -61,56 +61,10 @@ API_CIRCUIT_FAILURE_THRESHOLD = max(
     1, int(os.getenv('API_CIRCUIT_FAILURE_THRESHOLD', '5')))
 API_CIRCUIT_COOLDOWN_SECONDS = max(
     10, int(os.getenv('API_CIRCUIT_COOLDOWN_SECONDS', '120')))
-MAX_ACCOUNT_EXPOSURE_IDR = max(
-    0.0, float(os.getenv('MAX_ACCOUNT_EXPOSURE_IDR', '0')))
 TELEGRAM_PRICE_CHANGE_PERCENT = max(
     0.1, float(os.getenv('TELEGRAM_PRICE_CHANGE_PERCENT', '5')))
-LIVE_TRADING_ENABLED = os.getenv(
-    'LIVE_TRADING_ENABLED', 'false').strip().lower() == 'true'
-# Live trading tidak lagi mewajibkan konfirmasi risiko eksplisit maupun
-# allowlist ID bot. Variabel berikut tetap dibaca agar env lama kompatibel.
-LIVE_TRADING_CONFIRMATION = os.getenv('LIVE_TRADING_CONFIRMATION', '')
-LIVE_TRADING_BOT_IDS = frozenset(
-    value.strip() for value in os.getenv('LIVE_TRADING_BOT_IDS', '').split(',')
-    if value.strip()
-)
-# 0 menonaktifkan syarat bukti siklus dry-run. Nilai di luar rentang 0-100
-# dianggap tidak valid dan kembali ke default 1.
-_configured_min_cycles = int(os.getenv('LIVE_MIN_DRY_RUN_CYCLES', '1'))
-LIVE_MIN_DRY_RUN_CYCLES = (
-    _configured_min_cycles if 0 <= _configured_min_cycles <= 100 else 1)
-
-
-def _planned_strategy_capital(strategy: dict | None) -> float:
-    if not strategy:
-        return 0.0
-    base = max(float(strategy.get('base_order_amount', 0) or 0), 0)
-    safety = max(float(strategy.get('safety_order_amount', 0) or 0), 0)
-    maximum = max(int(strategy.get('max_safety_orders', 0) or 0), 0)
-    martingale = bool(strategy.get('martingale_enabled', False))
-    scale = max(float(strategy.get('volume_scale', 1) or 1), 0)
-    return base + sum(
-        safety * (scale ** (level - 1) if martingale else 1)
-        for level in range(1, maximum + 1)
-    )
-
-
-def live_trading_allowed_for(bot_id: str,
-                             completed_dry_run_cycles: int = 0,
-                             strategy: dict | None = None) -> bool:
-    # LIVE_TRADING_CONFIRMATION dan LIVE_TRADING_BOT_IDS tidak lagi
-    # diberlakukan. Yang wajib: flag master on, modal & batas posisi cukup,
-    # exposure cap cukup, dan jumlah siklus dry-run selesai terpenuhi.
-    planned_capital = _planned_strategy_capital(strategy)
-    max_position = float(strategy.get('max_position_amount', 0) or 0) \
-        if strategy else 0
-    return (
-        LIVE_TRADING_ENABLED
-        and planned_capital > 0
-        and max_position >= planned_capital
-        and MAX_ACCOUNT_EXPOSURE_IDR >= planned_capital
-        and completed_dry_run_cycles >= LIVE_MIN_DRY_RUN_CYCLES
-    )
+# Mode real ditentukan oleh bots.dry_run. Variabel gate rollout lama dan
+# MAX_ACCOUNT_EXPOSURE_IDR diabaikan, termasuk pada instalasi yang diupgrade.
 
 # ============================================================
 # Logging

@@ -48,23 +48,16 @@ On a new database, set `ADMIN_PASSWORD` for the first startup. Remove that value
 
 ## Trading safety controls
 
-Set these values in `.env` before enabling a live bot:
+Konfigurasi ketahanan koneksi API di `.env`:
 
 ```bash
-MAX_ACCOUNT_EXPOSURE_IDR=1000000
 API_CIRCUIT_FAILURE_THRESHOLD=5
 API_CIRCUIT_COOLDOWN_SECONDS=120
-LIVE_TRADING_ENABLED=false
-LIVE_TRADING_CONFIRMATION=
-LIVE_TRADING_BOT_IDS=
-LIVE_MIN_DRY_RUN_CYCLES=1
 ```
 
-`MAX_ACCOUNT_EXPOSURE_IDR=0` disables the account-wide cap and is therefore not
-appropriate for the live rollout gate. A nonzero cap counts the full planned
-capital of every active live cycle (BO plus all configured SO). The check and
-reservation occur before the private order request. Dry-run positions do not
-consume this live limit.
+Exposure dicatat untuk pelaporan modal aktif. Tidak ada cap exposure atau
+kewajiban max_position_amount untuk membuka mode real maupun mengirim entry.
+Nilai gate lama di environment diabaikan.
 
 The circuit breaker is per bot. Repeated errors for the same exchange operation
 open it at the configured threshold; nonce/timestamp drift and unreconcilable
@@ -75,69 +68,32 @@ Authenticated clients can inspect the current reservation through
 `GET /api/accounts/:id/exposure`. The endpoint is tenant-scoped and does not
 contact the exchange.
 
-## Fail-closed live rollout gate
+## Mode real tanpa gate rollout
 
-Converting or starting a live bot requires all five conditions:
+Pilih Real di Settings dan Simpan. Bot dapat dibuat langsung lewat API dengan
+`dry_run=false`. Tidak ada kewajiban siklus dry run, flag master, konfirmasi,
+allowlist, stop-loss minimum, batas posisi, atau cap exposure.
 
-1. `LIVE_TRADING_ENABLED=true`.
-2. `LIVE_TRADING_CONFIRMATION=I_ACCEPT_LIVE_TRADING_RISK`.
-3. `MAX_ACCOUNT_EXPOSURE_IDR` is a finite value greater than zero.
-4. The exact bot ID is present in comma-separated `LIVE_TRADING_BOT_IDS`.
-5. Its ledger contains at least `LIVE_MIN_DRY_RUN_CYCLES` completed dry-run
-   cycles (pilot default: one).
+Perubahan dry run → real saat RUNNING diproses manager dengan menyelesaikan
+worker lama sebelum worker real dibuat. Posisi simulasi diarsipkan sebagai
+`SIMULATION_CLOSED`, bukan dijual di exchange. Riwayat tetap tersimpan.
+Mode dan strategi dari Settings disimpan bersama dalam satu transaksi.
 
-Keep the defaults (`false`, empty confirmation, and zero exposure) throughout
-development and dry-run validation. Stop the bot before changing its mode,
-then restart the Node and Python processes after changing environment values.
-New bots must always be created in dry-run. After the required cycles finish,
-stop the chosen bot, add only that bot ID to the allowlist, set the other gate
-values, and restart both runtimes. Query
-`GET /api/live-readiness?bot_id=<owned-bot-id>` before changing its mode. The
-response reports the completed/required cycle counts and each gate as a
-boolean, but never returns the allowlisted IDs or confirmation value.
-
-The Python manager independently checks the same allowlist and dry-run ledger
-evidence. A live bot inserted or modified directly in SQLite is stopped before
-credential decryption or worker startup and produces a `LIVE_TRADING_BLOCKED`
-alert. Closing the gate later
-does not liquidate or cancel an already open live position automatically; use
-the normal Stop and orphan-order procedures so exchange state remains explicit.
-
-Only dry-run cycles closed by a recorded `TAKE_PROFIT` or `STOP_LOSS`, with a
-positive exit price and traded amount, count toward rollout readiness. Manual
-reset, mode-transition cleanup, and failed/cancelled base entries never count.
-Node and Python also require `stop_loss_percent>0`, a positive strategy capital
-plan fully covered by `max_position_amount`, and an account exposure cap large
-enough for that plan.
-
-After a rollout or emergency stop, return `LIVE_TRADING_ENABLED=false`, clear
-the confirmation and allowlist, and restart XBot. Reopening live mode always
-requires the operator to set every gate again.
-
-Sebelum mengubah `dry_run`, jalankan preflight read-only untuk bot pilot:
+Preflight bersifat laporan read-only, bukan izin rollout:
 
 ```bash
-npm run preflight:live -- --bot-id BOT_ID
+docker compose exec -T xbot node scripts/live_rollout_preflight.js --bot-id BOT_ID
+npm run audit:dry-run -- --bot-id BOT_ID --require-closed 0
 ```
 
-Exit code `0` berarti gate environment, bukti dry-run, profil risiko, status
-account, posisi, dan order ledger siap untuk langkah operator berikutnya. Exit
-code `2` berarti rollout tetap diblokir; perbaiki seluruh `reasons` pada output
-JSON. Preflight tidak mengubah database, mode bot, atau mengirim request ke
-exchange. Pemeriksaan HTTPS/firewall, izin API tanpa withdrawal, pendanaan,
-dan backup off-host tetap wajib dilakukan operator secara terpisah.
+Preflight exit 0 berarti bot ditemukan dan mode real tersedia; posisi/order
+aktif menjadi informasi. Exit 2 berarti bot tidak ditemukan, exit 1 berarti
+gagal membaca laporan. Audit tetap bisa membaca riwayat simulasi bot real.
 
-Audit ulang aritmetika setiap siklus dry-run terhadap trade ledger sebelum
-preflight. Angka `--require-closed` harus sama dengan gate rollout:
-
-```bash
-npm run audit:dry-run -- --bot-id BOT_ID --require-closed 1
-```
-
-Audit menghitung ulang modal beli, jumlah aset, nilai jual gross/net, fee, dan
-realized profit tanpa menulis database. Hanya siklus `TAKE_PROFIT` atau
-`STOP_LOSS` dengan exit trade yang dihitung sebagai bukti rollout; reset manual
-tetap dapat memiliki ledger yang konsisten tetapi tidak menambah evidence.
+Untuk menghentikan trading gunakan Stop. Variabel gate environment lama tidak
+lagi menghentikan worker. Kembali dari real ke simulasi memerlukan Stop untuk
+membatalkan order exchange. Posisi real terbuka tetap dicatat dan harus
+ditangani dalam mode real. Lihat [panduan mode real](ROLLOUT_LIVE_CHECKLIST.md).
 
 On restart with an active position, the worker restores TP/SO children from the
 durable order ledger, including a terminal order committed immediately before
@@ -289,32 +245,14 @@ infrastructure.
 Dashboard diagnostic messages are silent by default; set `LOG_LEVEL=DEBUG` to
 emit them as redacted JSON records during a bounded investigation.
 
-## Live-trading gate
+## Pengaturan stop-loss
 
-Profil risiko pilot yang disetujui operator pada 10 Agustus 2026 adalah satu
-bot/siklus dengan `max_position_amount=90000`,
-`MAX_ACCOUNT_EXPOSURE_IDR=100000`, dan `stop_loss_percent=8`. Anggaran rugi
-operasional adalah Rp10.000 per siklus termasuk ruang untuk fee/slippage;
-angka ini bukan jaminan harga eksekusi. Jangan menaikkan batas atau menambah
-bot live tanpa persetujuan risiko baru.
-
-Gunakan alat fail-closed berikut untuk menerapkan nilai strategy hanya ketika
-bot masih dry-run. Tanpa `--apply`, perintah hanya menampilkan preview:
+Stop-loss tetap mengikuti strategi pengguna; nilai 0 berarti tidak aktif.
+Helper berikut menerima bot dry run maupun real, dengan preview sebagai default:
 
 ```bash
-python scripts/set_bot_risk.py \
-  --bot-id BOT_ID --stop-loss 8 --max-position 90000
-python scripts/set_bot_risk.py \
-  --bot-id BOT_ID --stop-loss 8 --max-position 90000 --apply
+python scripts/set_bot_risk.py --bot-id BOT_ID --stop-loss 0 --max-position 0
 ```
 
-Alat menolak bot live, stop-loss nol, dan batas posisi yang tidak menutup modal
-satu siklus penuh.
-
-- No open P0/P1 security defect.
-- No API key with withdrawal permission.
-- HTTPS reverse proxy and firewall active.
-- One full dry-run cycle completed.
-- Maximum position amount configured and funded.
-- Restart recovery tested with an open simulated position.
-- Operator knows the maximum accepted loss and emergency stop procedure.
+Tambahkan `--apply` untuk menyimpan perubahan. Parameter `--max-position`
+dipertahankan sebagai metadata kompatibilitas dan tidak membatasi entry.

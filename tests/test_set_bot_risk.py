@@ -52,15 +52,15 @@ class SetBotRiskTest(unittest.TestCase):
         self.assertTrue(applied['applied'])
         self.assertEqual(self.values(), (8, 90000))
 
-    def test_rejects_undersized_limit_and_live_bot(self):
-        with self.assertRaises(ValueError):
-            set_bot_risk(self.database, 'bot', 8, 89999, apply=True)
+    def test_accepts_zero_and_live_bot(self):
+        set_bot_risk(self.database, 'bot', 0, 0, apply=True)
         connection = sqlite3.connect(self.database)
         connection.execute("UPDATE bots SET dry_run=0 WHERE id='bot'")
         connection.commit()
         connection.close()
-        with self.assertRaises(ValueError):
-            set_bot_risk(self.database, 'bot', 8, 90000, apply=True)
+        result = set_bot_risk(self.database, 'bot', 0, 1, apply=True)
+        self.assertFalse(result['dry_run'])
+        self.assertEqual(self.values(), (0, 1))
 
 
 if __name__ == '__main__':

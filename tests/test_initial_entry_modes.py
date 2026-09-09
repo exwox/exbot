@@ -113,7 +113,7 @@ class TestInitialEntryModes(unittest.TestCase):
         bot_exp = self.db.get_bot('bot_exp')
         self.assertEqual(bot_exp['status'], 'STOPPED')
 
-    def test_live_worker_is_stopped_when_rollout_gate_is_closed(self):
+    def test_live_worker_starts_without_rollout_requirements(self):
         self.db.add_account({
             'id': 'acc_live', 'name': 'Live Account', 'exchange': 'indodax',
             'api_key_encrypted': 'key', 'api_secret_encrypted': 'secret',
@@ -131,18 +131,34 @@ class TestInitialEntryModes(unittest.TestCase):
 
         from core.bot_manager import BotManager
         manager = BotManager(self.db, DummyEncryption())
-        with patch('core.bot_manager.live_trading_allowed_for', return_value=False):
+        with patch.object(manager.account_service, 'get_decrypted_credentials',
+                          return_value={'api_key': 'test', 'api_secret': 'test'}), \
+                patch.object(BotWorker, 'start') as start:
             manager.initialize()
+            start.assert_called_once()
 
-        self.assertEqual(self.db.get_bot('bot_live')['status'], 'STOPPED')
+        self.assertEqual(self.db.get_bot('bot_live')['status'], 'RUNNING')
         self.assertEqual(
             self.db.get_completed_dry_run_cycle_count('bot_live'), 0)
-        self.assertNotIn('bot_live', manager.workers)
+        self.assertIn('bot_live', manager.workers)
+        self.assertFalse(manager.workers['bot_live'].dry_run)
         alert = self.db.connection.execute(
             "SELECT * FROM alerts WHERE dedupe_key='live-gate:bot_live'"
         ).fetchone()
-        self.assertIsNotNone(alert)
-        self.assertEqual(alert['kind'], 'LIVE_TRADING_BLOCKED')
+        self.assertIsNone(alert)
+
+        # Manager waits for the old worker, rather than creating overlapping
+        # simulation/live workers when an in-flight request takes time.
+        old_worker = manager.workers['bot_live']
+        old_worker.configuration_fingerprint = 'old-simulation'
+        with patch.object(old_worker, 'stop', side_effect=[False, True]) as stop, \
+                patch.object(manager, '_start_single_worker') as replace:
+            manager.reconcile_workers()
+            replace.assert_not_called()
+            self.assertIs(manager.workers['bot_live'], old_worker)
+            manager.reconcile_workers()
+            replace.assert_called_once()
+            stop.assert_called_with(persist_status=False)
 
 
 if __name__ == '__main__':

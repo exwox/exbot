@@ -325,7 +325,7 @@
                             <div class="row g-3">
                                 <div class="col-md-4"><label class="form-label small">Nama Bot</label><input class="form-control" name="bot_name" type="text" required></div>
                                 <div class="col-md-4"><label class="form-label small">Trading Pair</label><input class="form-control" name="pair" type="text" pattern="[A-Za-z0-9_]+" required></div>
-                                <div class="col-md-4 d-flex align-items-end"><div class="form-check mb-2"><input id="dryRun" class="form-check-input" name="dry_run" type="checkbox"><label class="form-check-label" for="dryRun">Dry run (tanpa order riil)</label></div></div>
+                                <div class="col-md-4"><label class="form-label small">Mode Trading</label><select id="dryRun" class="form-select" name="dry_run"><option value="true">Dry Run — simulasi</option><option value="false">Real — uang asli</option></select><small class="text-secondary">Real dapat dipilih langsung. Bot yang berjalan akan melanjutkan dengan mode baru setelah Simpan.</small></div>
                                 <div class="col-md-6"><label class="form-label small">Base Order (IDR)</label><input class="form-control" name="base_order_amount" type="number" min="0" step="1000" required></div>
                                 <div class="col-md-6"><label class="form-label small">Safety Order (IDR)</label><input class="form-control" name="safety_order_amount" type="number" min="0" step="1000" required></div>
                                 <div class="col-md-4"><label class="form-label small">Maks. Safety Order</label><input class="form-control" name="max_safety_orders" type="number" min="0" step="1" required></div>
@@ -365,7 +365,8 @@
                                 </div>
                                 <small class="text-muted d-block mt-1">Token disimpan terenkripsi di database. Hubungkan bot dengan klik "Dapatkan Kode Link" lalu kirim kode tersebut ke bot Telegram Anda.</small>
                             </div>
-                                 <div class="col-md-4"><label class="form-label small">RSI Period</label><input class="form-control" name="rsi_period" type="number" min="1" step="1" required></div>
+                            <div class="row g-3 mt-1">
+                                 <div class="col-md-4"><label class="form-label small">RSI Period</label><input class="form-control" name="rsi_period" type="number" min="2" step="1" required></div>
                                  <div class="col-md-4"><label class="form-label small">RSI Oversold</label><input class="form-control" name="rsi_oversold" type="number" min="0" max="100" step="1" required></div>
                                  <div class="col-md-4"><label class="form-label small">Mode Entry Awal (Start Bot)</label><select class="form-select" name="initial_entry_mode"><option value="MARKET">⚡ Market Buy Langsung</option><option value="LIMIT">🎯 Limit Buy Langsung</option><option value="RSI">📊 Tunggu RSI Oversold (Market Buy)</option><option value="RSI_LIMIT">📊 Tunggu RSI Oversold (Limit Buy)</option></select></div>
                              </div>
@@ -795,7 +796,7 @@
                 }
             form.elements.bot_name.value = selectedDcaBot.name;
             form.elements.pair.value = selectedDcaBot.pair;
-            form.elements.dry_run.checked = selectedDcaBot.dry_run;
+            form.elements.dry_run.value = String(selectedDcaBot.dry_run);
             form.elements.martingale_enabled.checked = !!selectedDcaStrategy.martingale_enabled;
             form.elements.step_scale_enabled.checked = !!selectedDcaStrategy.step_scale_enabled;
             toggleDcaScales();
@@ -1021,23 +1022,22 @@
             if (!selectedDcaBot || !selectedDcaStrategy) return;
             const form = event.target;
             const settings = Object.fromEntries(new FormData(form));
-            settings.dry_run = form.elements.dry_run.checked;
+            const dryRun = form.elements.dry_run.value === 'true';
             settings.martingale_enabled = form.elements.martingale_enabled.checked;
             settings.step_scale_enabled = form.elements.step_scale_enabled.checked;
-            const botName = settings.bot_name;
             const pair = settings.pair ? settings.pair.trim().toLowerCase().replace(/[\/\-\s]/g, '') : 'btcidr';
-            delete settings.bot_name;
             delete settings.pair;
             delete settings.dry_run;
             Object.keys(settings).forEach(key => {
-                if (!['martingale_enabled', 'step_scale_enabled', 'initial_entry_mode'].includes(key)) settings[key] = Number(settings[key]);
+                if (!['bot_name', 'martingale_enabled', 'step_scale_enabled', 'initial_entry_mode'].includes(key)) settings[key] = Number(settings[key]);
             });
             try {
                 const response = await fetch('/api/settings', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ bot_id: selectedDcaBot.id, strategy_id: selectedDcaStrategy.id, settings: { ...settings, pair, dry_run: form.elements.dry_run.checked } })
+                    body: JSON.stringify({ bot_id: selectedDcaBot.id, strategy_id: selectedDcaStrategy.id, settings: { ...settings, pair, dry_run: dryRun } })
                 });
                 const result = await response.json();
+                if (!response.ok || !result.success) throw new Error(result.error || `HTTP ${response.status}`);
                 const coverageWarning = result.success && currentDcaCapitalPlan &&
                     currentDcaCapitalPlan.coverage_percent < 100;
                 const savedMessage = coverageWarning
@@ -1049,14 +1049,8 @@
                     result.success ? (coverageWarning ? 'warning' : 'success') : 'danger'
                 );
                 if (result.success) {
-                    Object.assign(selectedDcaStrategy, settings);
-                    if (selectedDcaBot.name !== botName || selectedDcaBot.pair !== pair || selectedDcaBot.dry_run !== form.elements.dry_run.checked) {
-                        const botResponse = await fetch(`/api/bots/${selectedDcaBot.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...selectedDcaBot, name: botName, pair, dry_run: form.elements.dry_run.checked }) });
-                        const botResult = await botResponse.json();
-                        if (!botResponse.ok || !botResult.success) {
-                            throw new Error(`Mode bot tidak berubah: ${botResult.error || `HTTP ${botResponse.status}`}`);
-                        }
-                    }
+                    if (result.data) selectedDcaBot = result.data;
+                    await loadDcaSettings();
                     await loadBots();
                     if (selectedDcaBot) {
                         const updatedBot = dcaData.bots.find(b => b.id === selectedDcaBot.id);

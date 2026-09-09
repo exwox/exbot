@@ -78,8 +78,7 @@ def audit_dry_run_cycles(database_path: Path, bot_id: str,
             'bot_id': bot_id, 'bot_dry_run': bool(bot['dry_run']),
             'cycle_count': len(reports), 'valid_closed_cycles': closed_valid,
             'required_closed_cycles': max(int(require_closed), 0),
-            'valid': (bool(bot['dry_run'])
-                      and all(report['valid'] for report in reports)
+            'valid': (all(report['valid'] for report in reports)
                       and closed_valid >= max(int(require_closed), 0)),
             'cycles': reports,
         }

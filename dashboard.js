@@ -10,7 +10,6 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { redactSensitive, safeMetadata } = require('./log-redaction');
-const { requireLiveTrading } = require('./live-trading-policy');
 const { DEFAULT_STRATEGY } = require('./strategy-defaults');
 
 const app = express();
@@ -923,13 +922,6 @@ app.post('/api/start', async (req, res) => {
         const bot = await getCurrentUserBot(req.user.id);
         if (!bot) return res.status(404).json({ success: false, message: 'Belum ada bot DCA untuk akun Anda.' });
         if (bot.status === 'RUNNING') return res.json({ success: false, message: 'Bot sudah berjalan.' });
-        if (!bot.dry_run) {
-            const completedDryCycles = await db.getCompletedDryRunCycleCount(bot.id);
-            const strategy = bot.strategy_id
-                ? await db.getStrategy(bot.strategy_id) : null;
-            requireLiveTrading(
-                bot.id, completedDryCycles, process.env, strategy);
-        }
         bot.status = 'RUNNING';
         await db.updateBot(bot);
         botState.running = true;
