@@ -705,7 +705,11 @@ class BotWorker:
 
     def _calculate_rsi(self) -> Optional[float]:
         """Calculate RSI from OHLC data"""
-        candles = self.client.get_ohlc(self.pair, '1h', self.strategy.rsi_period + 10)
+        # Request a generous window so the Wilder average settles close to the
+        # chart overlay's RSI instead of a cold single-period mean.
+        candle_count = max(self.strategy.rsi_period * 2,
+                           self.strategy.rsi_period + 10)
+        candles = self.client.get_ohlc(self.pair, '1h', candle_count)
         if isinstance(candles, list) and len(candles) > 0:
             self._record_api_success('ohlc')
             closes = [float(c['close']) for c in candles]

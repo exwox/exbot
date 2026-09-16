@@ -130,30 +130,46 @@ class StrategyEngine:
         return 0.0
 
     def calculate_rsi(self, closes: list[float]) -> Optional[float]:
-        """Calculate RSI from closing prices"""
+        """Calculate the latest Wilder RSI from closing prices.
+
+        Matches the chart overlay's ``calcRSI()``: the first average is a
+        simple mean of the first ``rsi_period`` changes, then every later
+        change is Wilder-smoothed (exponential per-period average). Uses all
+        supplied closes so the result tracks the *most recent* price action.
+
+        The previous implementation averaged ``gains[:rsi_period]`` — the
+        leading/oldest window. Because OHLC lists are chronological, that
+        value ignored every candle after the 15th and stayed stale even as
+        new candles arrived, corrupting the RSI shown in logs and the
+        RE_ENTER gate. This version returns the RSI ending at the last close.
+        """
         if not closes or len(closes) < self.rsi_period + 1:
             return None
 
-        gains = []
-        losses = []
-        for i in range(1, len(closes)):
+        period = self.rsi_period
+        gain = 0.0
+        loss = 0.0
+        for i in range(1, period + 1):
             diff = closes[i] - closes[i - 1]
             if diff > 0:
-                gains.append(diff)
-                losses.append(0)
+                gain += diff
             else:
-                gains.append(0)
-                losses.append(abs(diff))
+                loss += abs(diff)
 
-        avg_gain = sum(gains[:self.rsi_period]) / self.rsi_period
-        avg_loss = sum(losses[:self.rsi_period]) / self.rsi_period
-
+        avg_gain = gain / period
+        avg_loss = loss / period
         if avg_loss == 0:
             return 100.0
 
+        for i in range(period + 1, len(closes)):
+            diff = closes[i] - closes[i - 1]
+            avg_gain = (avg_gain * (period - 1) + max(diff, 0.0)) / period
+            avg_loss = (avg_loss * (period - 1) + max(-diff, 0.0)) / period
+            if avg_loss == 0:
+                return 100.0
+
         rs = avg_gain / avg_loss
-        rsi = 100 - (100 / (1 + rs))
-        return round(rsi, 2)
+        return round(100 - (100 / (1 + rs)), 2)
 
     def evaluate(self, state: dict, current_price: float, rsi: Optional[float] = None) -> DCADecision:
         """

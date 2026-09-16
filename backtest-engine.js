@@ -81,20 +81,33 @@ function runBacktest(rawCandles, rawStrategy, options = {}) {
     let ambiguousCandles = 0;
     const unfundedSafetyOrders = new Set();
 
-    const rsiAt = index => {
-        if (index < strategy.rsiPeriod) return null;
-        let gains = 0;
-        let losses = 0;
-        const start = index - strategy.rsiPeriod + 1;
-        for (let cursor = start; cursor <= index; cursor += 1) {
-            const change = candles[cursor].close - candles[cursor - 1].close;
-            if (change > 0) gains += change;
-            else losses += Math.abs(change);
+    // Wilder's RSI series, matching the live worker and the dashboard chart
+    // overlay's calcRSI(). Precomputed once so re-entry decisions in the
+    // backtest model the same indicator the production bot uses.
+    const rsiSeries = [];
+    if (candles.length > strategy.rsiPeriod) {
+        let avgGain = 0;
+        let avgLoss = 0;
+        for (let i = 1; i <= strategy.rsiPeriod; i += 1) {
+            const change = candles[i].close - candles[i - 1].close;
+            if (change > 0) avgGain += change;
+            else avgLoss += Math.abs(change);
         }
-        if (losses === 0) return 100;
-        const rs = (gains / strategy.rsiPeriod) / (losses / strategy.rsiPeriod);
-        return 100 - (100 / (1 + rs));
-    };
+        avgGain /= strategy.rsiPeriod;
+        avgLoss /= strategy.rsiPeriod;
+        rsiSeries[strategy.rsiPeriod] =
+            avgLoss === 0 ? 100 : 100 - (100 / (1 + avgGain / avgLoss));
+        for (let i = strategy.rsiPeriod + 1; i < candles.length; i += 1) {
+            const change = candles[i].close - candles[i - 1].close;
+            const gain = change > 0 ? change : 0;
+            const loss = change < 0 ? Math.abs(change) : 0;
+            avgGain = (avgGain * (strategy.rsiPeriod - 1) + gain) / strategy.rsiPeriod;
+            avgLoss = (avgLoss * (strategy.rsiPeriod - 1) + loss) / strategy.rsiPeriod;
+            rsiSeries[i] =
+                avgLoss === 0 ? 100 : 100 - (100 / (1 + avgGain / avgLoss));
+        }
+    }
+    const rsiAt = index => (index < strategy.rsiPeriod ? null : rsiSeries[index]);
 
     const openCycle = candle => {
         if (cash < strategy.base) return;
