@@ -2278,16 +2278,19 @@
                     let color = '#26a69a'; // default green
                     let size = 16;
 
-                    if (m.type === 'take_profit' || m.type === 'stop_loss' || m.type === 'sell') {
-                        text = m.type === 'take_profit' ? 'TP' :
-                            (m.type === 'stop_loss' ? 'SL' : 'S');
+                    if (m.type === 'take_profit' || m.type === 'partial_take_profit' ||
+                        m.type === 'stop_loss' || m.type === 'partial_stop_loss' ||
+                        m.type === 'sell') {
+                        const isTP = m.type === 'take_profit' || m.type === 'partial_take_profit';
+                        const isSL = m.type === 'stop_loss' || m.type === 'partial_stop_loss';
+                        text = isTP ? 'TP' : (isSL ? 'SL' : 'S');
                         color = '#ef5350'; // rose red
                         size = text.length > 1 ? 24 : 16;
                     } else if (m.type.startsWith('so_')) {
                         text = m.type.toUpperCase().replace('_', ''); // E.g., 'so_1' -> 'SO1'
                         color = '#26a69a'; // green
                         size = 24; // larger size for "SO1", "SO2" etc.
-                    } else if (m.type === 'base') {
+                    } else if (m.type === 'base' || m.type === 'base_market' || m.type === 'base_limit') {
                         text = 'BO';
                         color = '#26a69a';
                         size = 24;
@@ -2333,11 +2336,17 @@
                         hovertext: markers.map(m => {
                             const date = new Date(m.timestamp * 1000).toLocaleString('id-ID');
                             let actionName = 'BUY';
-                            if (m.type === 'take_profit') actionName = 'TAKE PROFIT (SELL)';
-                            else if (m.type === 'stop_loss') actionName = 'STOP LOSS (SELL)';
+                            if (m.type === 'take_profit' || m.type === 'partial_take_profit')
+                                actionName = m.type === 'partial_take_profit'
+                                    ? 'PARTIAL TAKE PROFIT (SELL)' : 'TAKE PROFIT (SELL)';
+                            else if (m.type === 'stop_loss' || m.type === 'partial_stop_loss')
+                                actionName = m.type === 'partial_stop_loss'
+                                    ? 'PARTIAL STOP LOSS (SELL)' : 'STOP LOSS (SELL)';
                             else if (m.type === 'sell') actionName = 'SELL';
                             else if (m.type.startsWith('so_')) actionName = 'SAFETY ORDER ' + m.type.split('_')[1];
-                            else if (m.type === 'base') actionName = 'BASE ORDER (BUY)';
+                            else if (m.type === 'base' || m.type === 'base_market' || m.type === 'base_limit')
+                                actionName = 'BASE ORDER (BUY)';
+                            else if (m.type === 'buy') actionName = 'BUY';
 
                             return `${actionName}<br>Harga: Rp ${formatRupiah(m.price)}<br>${date}<br>Jumlah: Rp ${formatRupiah(m.amount_idr)}`;
                         })

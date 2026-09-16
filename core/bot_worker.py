@@ -29,6 +29,16 @@ def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
 
 
+# Sisa aset terkecil yang masih dianggap "posisi terbuka".  _safe_sell_amount
+# sengaja memasang order TP satu unit (1e-8) di bawah jumlah tercatat dan
+# pembulatan fill/fee Indodax bisa meninggalkan 1e-8~1e-7 aset tanpa terpakai,
+# sehingga TP/SL yang terisi penuh biasanya menyisakan ~2e-8.  Sisa sekecil itu
+# harus tetap diperlakukan sebagai penutupan penuh; bila tidak, siklus tercatat
+# sebagai "partial take profit", tidak pernah ditutup, dan sesi baru tidak
+# pernah dimulai.
+TP_CLOSE_DUST_THRESHOLD = 1e-7
+
+
 class BotWorker:
     """
     Bot Worker independen untuk satu kombinasi Account + Pair.
@@ -1154,6 +1164,22 @@ class BotWorker:
             return 0.0
         return float(safe.quantize(Decimal('0.00000001'), rounding=ROUND_DOWN))
 
+    @staticmethod
+    def _remaining_is_dust(total_amount: float, residual: float) -> bool:
+        """True when the residual inventory is below the dust/rounding cap.
+
+        Order placement (``_safe_sell_amount``) deliberately leaves one
+        Indodax unit (~1e-8) behind and exchange fill/fee rounding can leave
+        another 1e-8~1e-7 uncredited, so a terminal TP/SL fill realistically
+        ends with ~2e-8 still recorded on the position.  A residual under
+        ``TP_CLOSE_DUST_THRESHOLD`` is therefore a full exit; only a meaningfully
+        larger remainder is genuine partial inventory that must keep being
+        managed.
+        """
+        if not total_amount or total_amount <= 0:
+            return residual <= TP_CLOSE_DUST_THRESHOLD
+        return residual <= max(total_amount * 1e-8, TP_CLOSE_DUST_THRESHOLD)
+
     def _place_so_order(self, position: dict, so_number: int):
         """Place a safety order limit buy"""
         base_price = position.get('base_price', 0)
@@ -1703,8 +1729,8 @@ class BotWorker:
             sold_after = min(
                 float(position.get('sold_amount', 0) or 0) + delta,
                 total_amount)
-            exhausted = (total_amount - sold_after) <= max(
-                total_amount * 1e-8, 1e-8)
+            exhausted = self._remaining_is_dust(
+                total_amount, total_amount - sold_after)
             close_reason = 'STOP_LOSS' if is_final and exhausted else ''
             self._record_trade(
                 position, 'sell',
@@ -1717,8 +1743,9 @@ class BotWorker:
             position['sold_amount'] = sold_after
         else:
             total_amount = float(position.get('total_amount', 0) or 0)
-            exhausted = (total_amount - float(position.get('sold_amount', 0) or 0)) <= max(
-                total_amount * 1e-8, 1e-8)
+            exhausted = self._remaining_is_dust(
+                total_amount,
+                total_amount - float(position.get('sold_amount', 0) or 0))
 
         if is_final:
             self.db.update_order_submission(intent['id'], exchange_order_id, 'FILLED')
@@ -1849,6 +1876,22 @@ class BotWorker:
         self.db.save_position(position)
 
         if replace_missing and not position.get('tp_order_id'):
+            # When a TP terminal-fill or terminal-cancel left only the
+            # rounding / offset dust in the recorded inventory, there is
+            # nothing meaningful to protect with another order.  Close the
+            # cycle here so the status resets and the strategy can start a
+            # new session instead of endlessly retrying a sub-minimum TP.
+            remaining = max(
+                float(position.get('total_amount', 0) or 0) -
+                float(position.get('sold_amount', 0) or 0), 0)
+            if self._remaining_is_dust(
+                    float(position.get('total_amount', 0) or 0), remaining):
+                self._log(LogEvent.TAKE_PROFIT,
+                          f"Remaining inventory {remaining:.8f} is residual dust; "
+                          f"cycle closed — ready for a new session")
+                self._cancel_all_orders()
+                self.db.close_position(self.bot_id, 'CLOSED')
+                return
             self._place_tp_order(position)
             self.db.save_position(position)
 
@@ -2030,7 +2073,8 @@ class BotWorker:
             profit_pct = profit / cost_basis * 100 if cost_basis > 0 else 0
             sold_after = min(float(position.get('sold_amount', 0) or 0) + delta,
                              total_amount)
-            exhausted = (total_amount - sold_after) <= max(total_amount * 1e-8, 1e-8)
+            exhausted = self._remaining_is_dust(
+                total_amount, total_amount - sold_after)
             close_reason = 'TAKE_PROFIT' if is_final and exhausted else ''
             self._record_trade(
                 position, 'sell', 'take_profit' if close_reason else 'partial_take_profit',
@@ -2044,8 +2088,9 @@ class BotWorker:
             self.db.save_position(position)
         else:
             total_amount = float(position.get('total_amount', 0) or 0)
-            exhausted = (total_amount - float(position.get('sold_amount', 0) or 0)) <= \
-                max(total_amount * 1e-8, 1e-8)
+            exhausted = self._remaining_is_dust(
+                total_amount,
+                total_amount - float(position.get('sold_amount', 0) or 0))
 
         if is_final:
             self.db.update_order_status_by_exchange_id(order_id, 'FILLED')
